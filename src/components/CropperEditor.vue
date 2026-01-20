@@ -28,13 +28,12 @@ const handleSelectionChange = async (event: Event) => {
 
   if (canvasRef.value && imageRef.value) {
     const canvasRect = canvasRef.value.getBoundingClientRect()
-    const imageRect = imageRef.value.getBoundingClientRect()
 
     const limit = {
-      x: imageRect.left - canvasRect.left,
-      y: imageRect.top - canvasRect.top,
-      width: imageRect.width,
-      height: imageRect.height,
+      x: 0,
+      y: 0,
+      width: canvasRect.width,
+      height: canvasRect.height,
     }
 
     const isWithin =
