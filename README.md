@@ -11,7 +11,7 @@
 - ✅ 保持原圖片格式輸出
 - ✅ 支援下載裁切後圖片
 - ✅ 透過 Event 發送上傳事件
-- ✅ 檔案格式驗證（JPEG、PNG、GIF、WebP、BMP）
+- ✅ 檔案格式驗證（JPEG、PNG、GIF、WebP、BMP、HEIC、AVIF）
 - ✅ 檔案大小限制（預設 10MB）
 
 ## 📦 元件使用
@@ -66,6 +66,14 @@ const handleDownload = (blob: Blob) => {
 - **GIF** (`.gif`) - 支援動畫（裁切後只保留第一幀）
 - **WebP** (`.webp`) - Google 開發的高壓縮率格式
 - **BMP** (`.bmp`) - 無壓縮點陣圖
+- **HEIC/HEIF** (`.heic`, `.heif`) - iOS 標準照片格式
+- **AVIF** (`.avif`) - 下一代高壓縮格式
+
+> ⚠️ **注意：關於 HEIC/HEIF 支援**
+>
+> 雖然本工具支援選取與驗證 HEIC/HEIF 格式，但目前的桌面瀏覽器（Chrome, Firefox, Edge）原生**不支援**直接預覽 `.heic` 圖片。
+>
+> 若您需要在前端直接顯示或裁切 HEIC 圖片，建議引入 [heic2any](https://github.com/alexcorvi/heic2any) 等轉檔套件，在 `loadImage` 階段將其轉為 JPEG 或 PNG。本專案目前僅實作「格式允許選取」與「基本驗證」。
 
 ## 📂 專案結構
 

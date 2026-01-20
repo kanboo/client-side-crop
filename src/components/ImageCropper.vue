@@ -1,105 +1,8 @@
-<template>
-  <div class="image-cropper">
-    <input
-      ref="fileInput"
-      type="file"
-      :accept="ACCEPT_STRING"
-      class="file-input"
-      @change="handleFileSelect"
-    />
-
-    <div v-if="errorMessage" class="error-banner">
-      <span class="error-message">{{ errorMessage }}</span>
-    </div>
-
-    <div class="cropper-container">
-      <div class="cropper-main">
-        <div class="cropper-section">
-          <div class="section-title">原圖裁切</div>
-          <div
-            class="cropper-editor"
-            :class="{ 'is-empty': !imageUrl }"
-            @click="!imageUrl && triggerFileInput()"
-          >
-            <template v-if="imageUrl">
-              <cropper-canvas background>
-                <cropper-image
-                  :src="imageUrl"
-                  alt="Source Image"
-                  scalable
-                  translatable
-                ></cropper-image>
-                <cropper-shade hidden></cropper-shade>
-                <cropper-selection
-                  ref="selectionRef"
-                  :initial-coverage="initialCoverage"
-                  :aspect-ratio="aspectRatio"
-                  movable
-                  resizable
-                  zoomable
-                  @change="handleSelectionChange"
-                >
-                  <cropper-grid role="grid" covered></cropper-grid>
-                  <cropper-crosshair centered></cropper-crosshair>
-                  <cropper-handle
-                    action="move"
-                    theme-color="rgba(255, 255, 255, 0.35)"
-                  ></cropper-handle>
-                  <cropper-handle action="n-resize"></cropper-handle>
-                  <cropper-handle action="e-resize"></cropper-handle>
-                  <cropper-handle action="s-resize"></cropper-handle>
-                  <cropper-handle action="w-resize"></cropper-handle>
-                  <cropper-handle action="ne-resize"></cropper-handle>
-                  <cropper-handle action="nw-resize"></cropper-handle>
-                  <cropper-handle action="se-resize"></cropper-handle>
-                  <cropper-handle action="sw-resize"></cropper-handle>
-                </cropper-selection>
-              </cropper-canvas>
-            </template>
-            <div v-else class="empty-state">
-              <div class="upload-icon">📷</div>
-              <div class="upload-text">點擊此處上傳圖片</div>
-              <div class="upload-hint">支援 JPG、PNG、GIF、WebP、BMP</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="cropper-section">
-          <div class="section-title">即時預覽</div>
-          <div class="preview-wrapper">
-            <canvas v-if="imageUrl" ref="previewCanvas" class="preview-canvas"></canvas>
-            <div v-else class="empty-state">
-              <div class="preview-placeholder-text">預覽區域</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="imageUrl" class="crop-info">
-        <span>📐 裁切資訊：</span>
-        <span
-          >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
-        >
-      </div>
-
-      <div v-if="imageUrl" class="controls">
-        <div class="controls-left">
-          <button type="button" class="btn btn-secondary" @click="handleReset">重設</button>
-          <button type="button" class="btn btn-secondary" @click="handleCancel">取消</button>
-        </div>
-        <div class="controls-right">
-          <button type="button" class="btn btn-primary" @click="handleDownload">下載</button>
-          <button type="button" class="btn btn-success" @click="handleUpload">上傳</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onUnmounted, watch, nextTick } from 'vue'
-import 'cropperjs'
-import { useCropper } from '@/composables/useCropper'
+import { ref, onUnmounted } from 'vue'
+import { useCropper, type CropData } from '@/composables/useCropper'
+import CropperEditor from './CropperEditor.vue'
+import CropperPreview from './CropperPreview.vue'
 
 interface Props {
   initialCoverage?: number
@@ -123,50 +26,23 @@ const emit = defineEmits<Emits>()
 const {
   ACCEPT_STRING,
   imageUrl,
+  imageName,
+  imageMimeType,
   cropData,
-  selectionRef,
   loadImage,
   updateCropData,
-  getCroppedBlob,
-  getCroppedFile,
-  reset,
   clear,
 } = useCropper(props.maxFileSize)
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref<string>('')
-const previewCanvas = ref<HTMLCanvasElement | null>(null)
 
-const updatePreview = async () => {
-  if (!selectionRef.value || !previewCanvas.value) return
+// Preview canvas state
+const currentPreviewCanvas = ref<HTMLCanvasElement | null>(null)
 
-  try {
-    const canvas = await selectionRef.value.$toCanvas()
-    const ctx = previewCanvas.value.getContext('2d')
-    if (!ctx) return
-
-    previewCanvas.value.width = canvas.width
-    previewCanvas.value.height = canvas.height
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(canvas, 0, 0)
-  } catch (error) {
-    console.error('Preview update failed:', error)
-  }
+const handleCanvasUpdate = (canvas: HTMLCanvasElement | null) => {
+  currentPreviewCanvas.value = canvas
 }
-
-watch(cropData, () => {
-  nextTick(() => {
-    updatePreview()
-  })
-})
-
-watch(imageUrl, () => {
-  if (imageUrl.value) {
-    nextTick(() => {
-      setTimeout(updatePreview, 100)
-    })
-  }
-})
 
 const triggerFileInput = () => {
   fileInput.value?.click()
@@ -189,13 +65,8 @@ const handleFileSelect = (event: Event) => {
   }
 }
 
-const handleSelectionChange = (event: Event) => {
-  const detail = (event as CustomEvent).detail
+const handleSelectionChange = (detail: CropData) => {
   updateCropData(detail)
-}
-
-const handleReset = () => {
-  reset()
 }
 
 const handleCancel = () => {
@@ -204,45 +75,108 @@ const handleCancel = () => {
     fileInput.value.value = ''
   }
   errorMessage.value = ''
-  if (previewCanvas.value) {
-    const ctx = previewCanvas.value.getContext('2d')
-    if (ctx) {
-      ctx.clearRect(0, 0, previewCanvas.value.width, previewCanvas.value.height)
-    }
-  }
+  currentPreviewCanvas.value = null
 }
 
 const handleDownload = async () => {
-  const blob = await getCroppedBlob()
-  if (!blob) {
+  const canvas = currentPreviewCanvas.value
+  if (!canvas) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
-  a.click()
-  URL.revokeObjectURL(url)
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
+    a.click()
+    URL.revokeObjectURL(url)
 
-  emit('download', blob)
+    emit('download', blob)
+  }, imageMimeType.value || 'image/png')
 }
 
 const handleUpload = async () => {
-  const file = await getCroppedFile()
-  if (!file) {
+  const canvas = currentPreviewCanvas.value
+  if (!canvas) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
-  emit('upload', file)
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+    const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
+    const file = new File([blob], fileName, { type: blob.type })
+    emit('upload', file)
+  }, imageMimeType.value || 'image/png')
 }
 
 onUnmounted(() => {
   clear()
 })
 </script>
+
+<template>
+  <div class="image-cropper">
+    <input
+      ref="fileInput"
+      type="file"
+      :accept="ACCEPT_STRING"
+      class="file-input"
+      @change="handleFileSelect"
+    />
+
+    <div v-if="errorMessage" class="error-banner">
+      <span class="error-message">{{ errorMessage }}</span>
+    </div>
+
+    <div class="cropper-container">
+      <div class="cropper-main">
+        <div class="cropper-section">
+          <div class="section-title">原圖裁切</div>
+          <CropperEditor
+            :image-url="imageUrl"
+            :initial-coverage="initialCoverage"
+            :aspect-ratio="aspectRatio"
+            @trigger-file-input="triggerFileInput"
+            @change="handleSelectionChange"
+            @update-canvas="handleCanvasUpdate"
+          />
+        </div>
+
+        <div class="cropper-section">
+          <div class="section-title">即時預覽</div>
+          <CropperPreview :preview-canvas="currentPreviewCanvas" />
+        </div>
+      </div>
+
+      <div v-if="imageUrl" class="crop-info">
+        <span>📐 裁切資訊：</span>
+        <span
+          >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
+        >
+      </div>
+
+      <div v-if="imageUrl" class="controls">
+        <div class="controls-left">
+          <button type="button" class="btn btn-secondary" @click="handleCancel">取消</button>
+        </div>
+        <div class="controls-right">
+          <button type="button" class="btn btn-primary" @click="handleDownload">下載</button>
+          <button type="button" class="btn btn-success" @click="handleUpload">上傳</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .image-cropper {
@@ -297,81 +231,6 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #374151;
-}
-
-.cropper-editor {
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  width: 100%;
-  aspect-ratio: 9 / 16;
-  position: relative;
-}
-
-.cropper-editor.is-empty {
-  cursor: pointer;
-  transition: all 0.2s;
-  background: #f9fafb;
-}
-
-.cropper-editor.is-empty:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-cropper-canvas {
-  display: block;
-  height: 100%;
-  width: 100%;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 12px;
-  color: #9ca3af;
-}
-
-.upload-icon {
-  font-size: 48px;
-  opacity: 0.5;
-}
-
-.upload-text {
-  font-size: 16px;
-  font-weight: 500;
-  color: #6b7280;
-}
-
-.upload-hint {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.preview-wrapper {
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  aspect-ratio: 9 / 16;
-  width: 100%;
-  background: #f9fafb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.preview-canvas {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.preview-placeholder-text {
-  font-size: 14px;
-  color: #9ca3af;
 }
 
 .crop-info {
