@@ -1,17 +1,5 @@
 <script setup lang="ts">
-import ImageCropper from '@/components/ImageCropper.vue'
-
-const handleUpload = (file: File) => {
-  console.log('上傳檔案：', file)
-  console.log('檔案名稱：', file.name)
-  console.log('檔案大小：', (file.size / 1024).toFixed(2), 'KB')
-  console.log('檔案類型：', file.type)
-}
-
-const handleDownload = (blob: Blob) => {
-  console.log('下載 Blob：', blob)
-  console.log('Blob 大小：', (blob.size / 1024).toFixed(2), 'KB')
-}
+import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <template>
@@ -19,16 +7,15 @@ const handleDownload = (blob: Blob) => {
     <header class="header">
       <h1>圖片裁切工具</h1>
       <p>支援 9:16 比例裁切，可放大縮小，保持原格式輸出</p>
+
+      <nav class="nav">
+        <RouterLink to="/" class="nav-link" active-class="active">裁切模式</RouterLink>
+        <RouterLink to="/preview" class="nav-link" active-class="active">裁切 + 預覽</RouterLink>
+      </nav>
     </header>
 
     <main class="main">
-      <ImageCropper
-        :initial-coverage="0.7"
-        :max-file-size="10 * 1024 * 1024"
-        :aspect-ratio="9 / 16"
-        @upload="handleUpload"
-        @download="handleDownload"
-      />
+      <RouterView />
     </main>
   </div>
 </template>
@@ -42,6 +29,32 @@ const handleDownload = (blob: Blob) => {
 .header {
   text-align: center;
   padding: 40px 20px 20px;
+}
+
+.nav {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #4b5563;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.2s;
+  background-color: #f3f4f6;
+}
+
+.nav-link:hover {
+  background-color: #e5e7eb;
+}
+
+.nav-link.active {
+  background-color: #3b82f6;
+  color: white;
 }
 
 .header h1 {

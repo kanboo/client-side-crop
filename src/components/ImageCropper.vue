@@ -8,6 +8,7 @@ interface Props {
   initialCoverage?: number
   maxFileSize?: number
   aspectRatio?: number
+  showPreview?: boolean
 }
 
 interface Emits {
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
   initialCoverage: 0.7,
   maxFileSize: 10 * 1024 * 1024,
   aspectRatio: 9 / 16,
+  showPreview: true,
 })
 
 const emit = defineEmits<Emits>()
@@ -139,7 +141,7 @@ onUnmounted(() => {
     </div>
 
     <div class="cropper-container">
-      <div class="cropper-main">
+      <div class="cropper-main" :class="{ 'single-column': !showPreview }">
         <div class="cropper-section">
           <div class="section-title">原圖裁切</div>
           <CropperEditor
@@ -152,7 +154,7 @@ onUnmounted(() => {
           />
         </div>
 
-        <div class="cropper-section">
+        <div v-if="showPreview" class="cropper-section">
           <div class="section-title">即時預覽</div>
           <CropperPreview :preview-canvas="currentPreviewCanvas" />
         </div>
@@ -213,6 +215,13 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+}
+
+.cropper-main.single-column {
+  grid-template-columns: 1fr;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
