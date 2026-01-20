@@ -1,68 +1,88 @@
 <template>
   <div class="image-cropper">
-    <div class="upload-section">
-      <input
-        ref="fileInput"
-        type="file"
-        :accept="ACCEPT_STRING"
-        class="file-input"
-        @change="handleFileSelect"
-      />
-      <button type="button" class="btn btn-primary" @click="triggerFileInput">選擇圖片</button>
-      <span v-if="errorMessage" class="error-message">{{ errorMessage }}</span>
+    <input
+      ref="fileInput"
+      type="file"
+      :accept="ACCEPT_STRING"
+      class="file-input"
+      @change="handleFileSelect"
+    />
+
+    <div v-if="errorMessage" class="error-banner">
+      <span class="error-message">{{ errorMessage }}</span>
     </div>
 
-    <div v-if="imageUrl" class="cropper-container">
+    <div class="cropper-container">
       <div class="cropper-main">
-        <div class="cropper-editor">
-          <cropper-canvas background>
-            <cropper-image :src="imageUrl" alt="Source Image" scalable translatable></cropper-image>
-            <cropper-shade hidden></cropper-shade>
-            <cropper-selection
-              ref="selectionRef"
-              :initial-coverage="initialCoverage"
-              :aspect-ratio="aspectRatio"
-              movable
-              resizable
-              zoomable
-              @change="handleSelectionChange"
-            >
-              <cropper-grid role="grid" covered></cropper-grid>
-              <cropper-crosshair centered></cropper-crosshair>
-              <cropper-handle
-                action="move"
-                theme-color="rgba(255, 255, 255, 0.35)"
-              ></cropper-handle>
-              <cropper-handle action="n-resize"></cropper-handle>
-              <cropper-handle action="e-resize"></cropper-handle>
-              <cropper-handle action="s-resize"></cropper-handle>
-              <cropper-handle action="w-resize"></cropper-handle>
-              <cropper-handle action="ne-resize"></cropper-handle>
-              <cropper-handle action="nw-resize"></cropper-handle>
-              <cropper-handle action="se-resize"></cropper-handle>
-              <cropper-handle action="sw-resize"></cropper-handle>
-            </cropper-selection>
-          </cropper-canvas>
+        <div class="cropper-section">
+          <div class="section-title">原圖裁切</div>
+          <div
+            class="cropper-editor"
+            :class="{ 'is-empty': !imageUrl }"
+            @click="!imageUrl && triggerFileInput()"
+          >
+            <template v-if="imageUrl">
+              <cropper-canvas background>
+                <cropper-image
+                  :src="imageUrl"
+                  alt="Source Image"
+                  scalable
+                  translatable
+                ></cropper-image>
+                <cropper-shade hidden></cropper-shade>
+                <cropper-selection
+                  ref="selectionRef"
+                  :initial-coverage="initialCoverage"
+                  :aspect-ratio="aspectRatio"
+                  movable
+                  resizable
+                  zoomable
+                  @change="handleSelectionChange"
+                >
+                  <cropper-grid role="grid" covered></cropper-grid>
+                  <cropper-crosshair centered></cropper-crosshair>
+                  <cropper-handle
+                    action="move"
+                    theme-color="rgba(255, 255, 255, 0.35)"
+                  ></cropper-handle>
+                  <cropper-handle action="n-resize"></cropper-handle>
+                  <cropper-handle action="e-resize"></cropper-handle>
+                  <cropper-handle action="s-resize"></cropper-handle>
+                  <cropper-handle action="w-resize"></cropper-handle>
+                  <cropper-handle action="ne-resize"></cropper-handle>
+                  <cropper-handle action="nw-resize"></cropper-handle>
+                  <cropper-handle action="se-resize"></cropper-handle>
+                  <cropper-handle action="sw-resize"></cropper-handle>
+                </cropper-selection>
+              </cropper-canvas>
+            </template>
+            <div v-else class="empty-state">
+              <div class="upload-icon">📷</div>
+              <div class="upload-text">點擊此處上傳圖片</div>
+              <div class="upload-hint">支援 JPG、PNG、GIF、WebP、BMP</div>
+            </div>
+          </div>
         </div>
 
-        <div class="cropper-preview">
-          <div class="preview-title">即時預覽</div>
-          <cropper-viewer
-            v-if="selectionRef"
-            :selection="selectionRef"
-            class="viewer"
-          ></cropper-viewer>
+        <div class="cropper-section">
+          <div class="section-title">即時預覽</div>
+          <div class="preview-wrapper">
+            <canvas v-if="imageUrl" ref="previewCanvas" class="preview-canvas"></canvas>
+            <div v-else class="empty-state">
+              <div class="preview-placeholder-text">預覽區域</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="crop-info">
+      <div v-if="imageUrl" class="crop-info">
         <span>📐 裁切資訊：</span>
         <span
           >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
         >
       </div>
 
-      <div class="controls">
+      <div v-if="imageUrl" class="controls">
         <div class="controls-left">
           <button type="button" class="btn btn-secondary" @click="handleReset">重設</button>
           <button type="button" class="btn btn-secondary" @click="handleCancel">取消</button>
@@ -77,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, watch, nextTick } from 'vue'
 import 'cropperjs'
 import { useCropper } from '@/composables/useCropper'
 
@@ -115,6 +135,38 @@ const {
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref<string>('')
+const previewCanvas = ref<HTMLCanvasElement | null>(null)
+
+const updatePreview = async () => {
+  if (!selectionRef.value || !previewCanvas.value) return
+
+  try {
+    const canvas = await selectionRef.value.$toCanvas()
+    const ctx = previewCanvas.value.getContext('2d')
+    if (!ctx) return
+
+    previewCanvas.value.width = canvas.width
+    previewCanvas.value.height = canvas.height
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(canvas, 0, 0)
+  } catch (error) {
+    console.error('Preview update failed:', error)
+  }
+}
+
+watch(cropData, () => {
+  nextTick(() => {
+    updatePreview()
+  })
+})
+
+watch(imageUrl, () => {
+  if (imageUrl.value) {
+    nextTick(() => {
+      setTimeout(updatePreview, 100)
+    })
+  }
+})
 
 const triggerFileInput = () => {
   fileInput.value?.click()
@@ -152,6 +204,12 @@ const handleCancel = () => {
     fileInput.value.value = ''
   }
   errorMessage.value = ''
+  if (previewCanvas.value) {
+    const ctx = previewCanvas.value.getContext('2d')
+    if (ctx) {
+      ctx.clearRect(0, 0, previewCanvas.value.width, previewCanvas.value.height)
+    }
+  }
 }
 
 const handleDownload = async () => {
@@ -193,20 +251,22 @@ onUnmounted(() => {
   padding: 20px;
 }
 
-.upload-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
 .file-input {
   display: none;
 }
 
+.error-banner {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
 .error-message {
-  color: #ef4444;
+  color: #dc2626;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .cropper-container {
@@ -217,7 +277,7 @@ onUnmounted(() => {
 
 .cropper-main {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
@@ -227,36 +287,91 @@ onUnmounted(() => {
   }
 }
 
-.cropper-editor {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-cropper-canvas {
-  display: block;
-  height: 500px;
-  width: 100%;
-}
-
-.cropper-preview {
+.cropper-section {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.preview-title {
+.section-title {
   font-size: 16px;
   font-weight: 600;
   color: #374151;
 }
 
-.viewer {
-  border: 1px solid #e5e7eb;
+.cropper-editor {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  position: relative;
+}
+
+.cropper-editor.is-empty {
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f9fafb;
+}
+
+.cropper-editor.is-empty:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+cropper-canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #9ca3af;
+}
+
+.upload-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.upload-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.upload-hint {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.preview-wrapper {
+  border: 2px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
   aspect-ratio: 9 / 16;
   width: 100%;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-placeholder-text {
+  font-size: 14px;
+  color: #9ca3af;
 }
 
 .crop-info {
