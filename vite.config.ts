@@ -7,12 +7,19 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          // 將所有 cropper- 開頭的標籤視為自定義元素
+          isCustomElement: (tag) => tag.startsWith('cropper-'),
+        },
+      },
+    }),
     vueDevTools(),
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
 })
