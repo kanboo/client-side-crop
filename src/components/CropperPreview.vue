@@ -23,6 +23,10 @@ const drawPreview = () => {
     return
   }
 
+  // 啟用高品質圖像渲染
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
   canvas.width = sourceCanvas.width
   canvas.height = sourceCanvas.height
   ctx.clearRect(0, 0, canvas.width, canvas.height)

@@ -50,8 +50,25 @@ const handleSelectionChange = async (event: Event) => {
 
   emit('change', customEvent.detail)
 
-  if (selectionRef.value) {
-    const canvas = await selectionRef.value.$toCanvas()
+  if (selectionRef.value && imageRef.value) {
+    // 取得圖片的變換矩陣以計算當前縮放比例
+    const matrix = imageRef.value.$getTransform()
+    const currentScale = matrix[0] ?? 1 // 水平縮放比例，預設為 1
+
+    // 計算原始解析度下的寬高（顯示尺寸 / 縮放比例 = 原始尺寸）
+    const originalWidth = selectionRef.value.width / currentScale
+    const originalHeight = selectionRef.value.height / currentScale
+
+    // 使用原始解析度生成 canvas，保持高品質
+    const canvas = await selectionRef.value.$toCanvas({
+      width: originalWidth,
+      height: originalHeight,
+      beforeDraw: (context) => {
+        // 啟用高品質圖像平滑處理
+        context.imageSmoothingEnabled = true
+        context.imageSmoothingQuality = 'high'
+      },
+    })
     emit('update-canvas', canvas)
   }
 }
@@ -62,8 +79,24 @@ watch(
     if (!props.imageUrl) return
     await nextTick()
     setTimeout(async () => {
-      if (selectionRef.value) {
-        const canvas = await selectionRef.value.$toCanvas()
+      if (selectionRef.value && imageRef.value) {
+        // 取得圖片的變換矩陣以計算當前縮放比例
+        const matrix = imageRef.value.$getTransform()
+        const currentScale = matrix[0] ?? 1 // 水平縮放比例，預設為 1
+
+        // 計算原始解析度下的寬高
+        const originalWidth = selectionRef.value.width / currentScale
+        const originalHeight = selectionRef.value.height / currentScale
+
+        // 使用原始解析度生成 canvas
+        const canvas = await selectionRef.value.$toCanvas({
+          width: originalWidth,
+          height: originalHeight,
+          beforeDraw: (context) => {
+            context.imageSmoothingEnabled = true
+            context.imageSmoothingQuality = 'high'
+          },
+        })
         emit('update-canvas', canvas)
       }
     }, 200)

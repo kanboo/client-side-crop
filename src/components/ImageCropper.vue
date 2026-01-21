@@ -87,20 +87,24 @@ const handleDownload = async () => {
     return
   }
 
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      errorMessage.value = '產生裁切圖片失敗'
-      return
-    }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
-    a.click()
-    URL.revokeObjectURL(url)
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) {
+        errorMessage.value = '產生裁切圖片失敗'
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
+      a.click()
+      URL.revokeObjectURL(url)
 
-    emit('download', blob)
-  }, imageMimeType.value || 'image/png')
+      emit('download', blob)
+    },
+    imageMimeType.value || 'image/png',
+    1.0, // 設定最高品質 (1.0)，適用於 image/jpeg 和 image/webp
+  )
 }
 
 const handleUpload = async () => {
@@ -110,15 +114,19 @@ const handleUpload = async () => {
     return
   }
 
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      errorMessage.value = '產生裁切圖片失敗'
-      return
-    }
-    const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
-    const file = new File([blob], fileName, { type: blob.type })
-    emit('upload', file)
-  }, imageMimeType.value || 'image/png')
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) {
+        errorMessage.value = '產生裁切圖片失敗'
+        return
+      }
+      const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
+      const file = new File([blob], fileName, { type: blob.type })
+      emit('upload', file)
+    },
+    imageMimeType.value || 'image/png',
+    1.0, // 設定最高品質 (1.0)
+  )
 }
 
 onUnmounted(() => {
@@ -160,20 +168,38 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="imageUrl" class="crop-info">
+      <div class="crop-info" :class="{ disabled: !imageUrl }">
         <span>📐 裁切資訊：</span>
-        <span
-          >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
+        <span v-if="imageUrl"
+          >寬 {{ currentPreviewCanvas?.width || Math.round(cropData.width) }} px × 高
+          {{ currentPreviewCanvas?.height || Math.round(cropData.height) }} px</span
         >
+        <span v-else>尚未選擇圖片</span>
       </div>
 
-      <div v-if="imageUrl" class="controls">
+      <div class="controls">
         <div class="controls-left">
-          <button type="button" class="btn btn-secondary" @click="handleCancel">取消</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            :disabled="!imageUrl"
+            @click="handleCancel"
+          >
+            取消
+          </button>
         </div>
         <div class="controls-right">
-          <button type="button" class="btn btn-primary" @click="handleDownload">下載</button>
-          <button type="button" class="btn btn-success" @click="handleUpload">上傳</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="!imageUrl"
+            @click="handleDownload"
+          >
+            下載
+          </button>
+          <button type="button" class="btn btn-success" :disabled="!imageUrl" @click="handleUpload">
+            上傳
+          </button>
         </div>
       </div>
     </div>
@@ -253,6 +279,11 @@ onUnmounted(() => {
   color: #4b5563;
 }
 
+.crop-info.disabled {
+  opacity: 0.5;
+  color: #9ca3af;
+}
+
 .controls {
   display: flex;
   justify-content: space-between;
@@ -277,13 +308,18 @@ onUnmounted(() => {
   transition: all 0.2s;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn:active {
+.btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-primary {
@@ -291,7 +327,7 @@ onUnmounted(() => {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
@@ -300,7 +336,7 @@ onUnmounted(() => {
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: #4b5563;
 }
 
@@ -309,7 +345,7 @@ onUnmounted(() => {
   color: white;
 }
 
-.btn-success:hover {
+.btn-success:hover:not(:disabled) {
   background-color: #059669;
 }
 </style>
