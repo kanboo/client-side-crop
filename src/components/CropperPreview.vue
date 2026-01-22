@@ -1,46 +1,17 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import 'cropperjs'
 
 interface Props {
-  previewCanvas?: HTMLCanvasElement | null
+  imageUrl?: string
 }
 
-const props = defineProps<Props>()
-
-const canvasElement = ref<HTMLCanvasElement | null>(null)
-
-const drawPreview = () => {
-  const canvas = canvasElement.value
-  const sourceCanvas = props.previewCanvas
-
-  if (!canvas) return
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  if (!sourceCanvas) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    return
-  }
-
-  // 啟用高品質圖像渲染
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-
-  canvas.width = sourceCanvas.width
-  canvas.height = sourceCanvas.height
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(sourceCanvas, 0, 0)
-}
-
-watch(() => props.previewCanvas, drawPreview)
-onMounted(drawPreview)
+defineProps<Props>()
 </script>
 
 <template>
   <div class="preview-wrapper">
-    <canvas v-show="previewCanvas" ref="canvasElement" class="preview-canvas"></canvas>
-    <div v-if="!previewCanvas" class="empty-state">
+    <cropper-viewer v-if="imageUrl" selection="#cropper-selection-main"></cropper-viewer>
+    <div v-else class="empty-state">
       <div class="preview-placeholder-text">預覽區域</div>
     </div>
   </div>
@@ -59,10 +30,9 @@ onMounted(drawPreview)
   justify-content: center;
 }
 
-.preview-canvas {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+cropper-viewer {
+  width: 100%;
+  height: 100%;
 }
 
 .empty-state {

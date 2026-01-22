@@ -38,13 +38,7 @@ const {
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref<string>('')
-
-// Preview canvas state
-const currentPreviewCanvas = ref<HTMLCanvasElement | null>(null)
-
-const handleCanvasUpdate = (canvas: HTMLCanvasElement | null) => {
-  currentPreviewCanvas.value = canvas
-}
+const selectionRef = ref<InstanceType<typeof CropperEditor> | null>(null)
 
 const triggerFileInput = () => {
   fileInput.value?.click()
@@ -77,56 +71,65 @@ const handleCancel = () => {
     fileInput.value.value = ''
   }
   errorMessage.value = ''
-  currentPreviewCanvas.value = null
 }
 
 const handleDownload = async () => {
-  const canvas = currentPreviewCanvas.value
-  if (!canvas) {
+  const selection = selectionRef.value?.selectionRef
+  if (!selection) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
-  canvas.toBlob(
-    (blob) => {
-      if (!blob) {
-        errorMessage.value = '產生裁切圖片失敗'
-        return
-      }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
-      a.click()
-      URL.revokeObjectURL(url)
+  try {
+    const canvas = await selection.$toCanvas()
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          errorMessage.value = '產生裁切圖片失敗'
+          return
+        }
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
+        a.click()
+        URL.revokeObjectURL(url)
 
-      emit('download', blob)
-    },
-    imageMimeType.value || 'image/png',
-    1.0, // 設定最高品質 (1.0)，適用於 image/jpeg 和 image/webp
-  )
+        emit('download', blob)
+      },
+      imageMimeType.value || 'image/png',
+      1.0,
+    )
+  } catch {
+    errorMessage.value = '產生裁切圖片失敗'
+  }
 }
 
 const handleUpload = async () => {
-  const canvas = currentPreviewCanvas.value
-  if (!canvas) {
+  const selection = selectionRef.value?.selectionRef
+  if (!selection) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
-  canvas.toBlob(
-    (blob) => {
-      if (!blob) {
-        errorMessage.value = '產生裁切圖片失敗'
-        return
-      }
-      const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
-      const file = new File([blob], fileName, { type: blob.type })
-      emit('upload', file)
-    },
-    imageMimeType.value || 'image/png',
-    1.0, // 設定最高品質 (1.0)
-  )
+  try {
+    const canvas = await selection.$toCanvas()
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          errorMessage.value = '產生裁切圖片失敗'
+          return
+        }
+        const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
+        const file = new File([blob], fileName, { type: blob.type })
+        emit('upload', file)
+      },
+      imageMimeType.value || 'image/png',
+      1.0,
+    )
+  } catch {
+    errorMessage.value = '產生裁切圖片失敗'
+  }
 }
 
 onUnmounted(() => {
@@ -153,26 +156,25 @@ onUnmounted(() => {
         <div class="cropper-section">
           <div class="section-title">原圖裁切</div>
           <CropperEditor
+            ref="selectionRef"
             :image-url="imageUrl"
             :initial-coverage="initialCoverage"
             :aspect-ratio="aspectRatio"
             @trigger-file-input="triggerFileInput"
             @change="handleSelectionChange"
-            @update-canvas="handleCanvasUpdate"
           />
         </div>
 
         <div v-if="showPreview" class="cropper-section">
           <div class="section-title">即時預覽</div>
-          <CropperPreview :preview-canvas="currentPreviewCanvas" />
+          <CropperPreview :image-url="imageUrl" />
         </div>
       </div>
 
       <div class="crop-info" :class="{ disabled: !imageUrl }">
         <span>📐 裁切資訊：</span>
         <span v-if="imageUrl"
-          >寬 {{ currentPreviewCanvas?.width || Math.round(cropData.width) }} px × 高
-          {{ currentPreviewCanvas?.height || Math.round(cropData.height) }} px</span
+          >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
         >
         <span v-else>尚未選擇圖片</span>
       </div>
