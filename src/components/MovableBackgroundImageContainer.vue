@@ -63,14 +63,19 @@ const handleCancel = () => {
 }
 
 const handleDownload = async () => {
-  const selection = selectionRef.value?.selectionRef
-  if (!selection) {
+  const editor = selectionRef.value
+  if (!editor) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
   try {
-    const canvas = await selection.$toCanvas()
+    const canvas = await editor.toCanvas()
+    if (!canvas) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -95,14 +100,19 @@ const handleDownload = async () => {
 }
 
 const handleUpload = async () => {
-  const selection = selectionRef.value?.selectionRef
-  if (!selection) {
+  const editor = selectionRef.value
+  if (!editor) {
     errorMessage.value = '產生裁切圖片失敗'
     return
   }
 
   try {
-    const canvas = await selection.$toCanvas()
+    const canvas = await editor.toCanvas()
+    if (!canvas) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+
     canvas.toBlob(
       (blob) => {
         if (!blob) {

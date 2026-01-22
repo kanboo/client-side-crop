@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import 'cropperjs'
-import type { CropperSelection } from 'cropperjs'
+import type { CropperSelection, CropperImage } from 'cropperjs'
 
 interface Props {
   imageUrl: string
@@ -12,9 +12,37 @@ interface Props {
 const props = defineProps<Props>()
 
 const selectionRef = ref<CropperSelection | null>(null)
+const cropperImageRef = ref<CropperImage | null>(null)
+
+const toCanvas = async () => {
+  const selection = selectionRef.value
+  const image = cropperImageRef.value
+
+  if (!selection || !image) return undefined
+
+  // 取得圖片的變換矩陣
+  const matrix = image.$getTransform()
+  // 計算縮放比例（假設為等比縮放或至少取得水平縮放比例）
+  // 矩陣格式為 [scaleX, skewY, skewX, scaleY, translateX, translateY]
+  // 相對於原始尺寸的縮放因子計算方式為 hypot(scaleX, skewY)
+  const scale = Math.sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1])
+
+  // 目前選取框的尺寸（Canvas 像素）
+  const { width, height } = selection
+
+  // 計算目標尺寸（原始圖片像素）
+  const targetWidth = Math.round(width / scale)
+  const targetHeight = Math.round(height / scale)
+
+  return selection.$toCanvas({
+    width: targetWidth,
+    height: targetHeight,
+  })
+}
 
 defineExpose({
   selectionRef,
+  toCanvas,
 })
 
 // 標記是否允許縮放變換（上傳圖片後短時間內允許）
@@ -69,6 +97,7 @@ watch(
     <template v-if="imageUrl">
       <cropper-canvas background>
         <cropper-image
+          ref="cropperImageRef"
           :src="imageUrl"
           alt="Source Image"
           initial-center-size="contain"

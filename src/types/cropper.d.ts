@@ -17,6 +17,7 @@ declare module 'cropperjs' {
 
   export interface CropperImage extends HTMLElement {
     src: string
+    $getTransform(): [number, number, number, number, number, number]
   }
 
   export type CropperCanvas = HTMLElement
