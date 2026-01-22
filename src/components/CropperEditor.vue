@@ -22,6 +22,29 @@ const selectionRef = ref<CropperSelection | null>(null)
 const canvasRef = ref<CropperCanvas | null>(null)
 const imageRef = ref<CropperImage | null>(null)
 
+// 標記是否允許縮放變換（上傳圖片後短時間內允許）
+const allowScaleTransform = ref(false)
+let scaleTransformTimer: ReturnType<typeof setTimeout> | null = null
+
+// 處理圖片變換事件，上傳期間允許，後續禁止縮放
+const handleImageTransform = (event: Event) => {
+  // 第一次觸發時開始計時
+  if (allowScaleTransform.value && scaleTransformTimer === null) {
+    scaleTransformTimer = setTimeout(() => {
+      allowScaleTransform.value = false
+      scaleTransformTimer = null
+    }, 500)
+  }
+
+  // 如果在允許期間，直接通過
+  if (allowScaleTransform.value) {
+    return
+  }
+
+  // 否則阻止縮放行為
+  event.preventDefault()
+}
+
 const handleSelectionChange = async (event: Event) => {
   const customEvent = event as CustomEvent<CropData>
   const { x, y, width, height } = customEvent.detail
@@ -77,7 +100,19 @@ watch(
   () => props.imageUrl,
   async () => {
     if (!props.imageUrl) return
+
+    // 清除舊的計時器（如果存在）
+    if (scaleTransformTimer !== null) {
+      clearTimeout(scaleTransformTimer)
+      scaleTransformTimer = null
+    }
+
+    // 開啟允許縮放的時間窗口（讓 contain 自動縮放可以執行）
+    // 計時會在第一次觸發 handleImageTransform 時開始
+    allowScaleTransform.value = true
+
     await nextTick()
+
     setTimeout(async () => {
       if (selectionRef.value && imageRef.value) {
         // 取得圖片的變換矩陣以計算當前縮放比例
@@ -116,10 +151,12 @@ watch(
           ref="imageRef"
           :src="imageUrl"
           alt="Source Image"
+          initial-center-size="contain"
           scalable
           translatable
+          @transform="handleImageTransform"
         ></cropper-image>
-        <cropper-shade hidden></cropper-shade>
+        <cropper-handle />
         <cropper-selection
           ref="selectionRef"
           :initial-coverage="initialCoverage"
