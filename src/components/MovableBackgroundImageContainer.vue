@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import { useCropper, type CropData } from '@/composables/useCropper'
-import CropperEditor from './CropperEditor.vue'
-import CropperPreview from './CropperPreview.vue'
+import { useCropper } from '@/composables/useCropper'
+import MovableBackgroundImageEditor from './MovableBackgroundImageEditor.vue'
+import MovableCroppingPreview from './MovableCroppingPreview.vue'
 
 interface Props {
   initialCoverage?: number
@@ -25,20 +25,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-const {
-  ACCEPT_STRING,
-  imageUrl,
-  imageName,
-  imageMimeType,
-  cropData,
-  loadImage,
-  updateCropData,
-  clear,
-} = useCropper(props.maxFileSize)
+const { ACCEPT_STRING, imageUrl, imageName, imageMimeType, loadImage, clear } = useCropper(
+  props.maxFileSize,
+)
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref<string>('')
-const selectionRef = ref<InstanceType<typeof CropperEditor> | null>(null)
+const selectionRef = ref<InstanceType<typeof MovableBackgroundImageEditor> | null>(null)
 
 const triggerFileInput = () => {
   fileInput.value?.click()
@@ -59,10 +52,6 @@ const handleFileSelect = (event: Event) => {
       fileInput.value.value = ''
     }
   }
-}
-
-const handleSelectionChange = (detail: CropData) => {
-  updateCropData(detail)
 }
 
 const handleCancel = () => {
@@ -155,28 +144,19 @@ onUnmounted(() => {
       <div class="cropper-main" :class="{ 'single-column': !showPreview }">
         <div class="cropper-section">
           <div class="section-title">原圖裁切</div>
-          <CropperEditor
+          <MovableBackgroundImageEditor
             ref="selectionRef"
             :image-url="imageUrl"
             :initial-coverage="initialCoverage"
             :aspect-ratio="aspectRatio"
             @trigger-file-input="triggerFileInput"
-            @change="handleSelectionChange"
           />
         </div>
 
         <div v-if="showPreview" class="cropper-section">
           <div class="section-title">即時預覽</div>
-          <CropperPreview :image-url="imageUrl" />
+          <MovableCroppingPreview :image-url="imageUrl" />
         </div>
-      </div>
-
-      <div class="crop-info" :class="{ disabled: !imageUrl }">
-        <span>📐 裁切資訊：</span>
-        <span v-if="imageUrl"
-          >寬 {{ Math.round(cropData.width) }} px × 高 {{ Math.round(cropData.height) }} px</span
-        >
-        <span v-else>尚未選擇圖片</span>
       </div>
 
       <div class="controls">
@@ -268,22 +248,6 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #374151;
-}
-
-.crop-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background-color: #f3f4f6;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #4b5563;
-}
-
-.crop-info.disabled {
-  opacity: 0.5;
-  color: #9ca3af;
 }
 
 .controls {

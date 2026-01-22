@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ImageCropper from '@/components/ImageCropper.vue'
+import MovableBackgroundImageContainer from '@/components/MovableBackgroundImageContainer.vue'
 
 const handleUpload = (file: File) => {
   console.log('上傳檔案：', file)
@@ -12,10 +12,10 @@ const handleDownload = (blob: Blob) => {
 
 <template>
   <div class="view-container">
-    <h2>單純裁切模式</h2>
-    <ImageCropper
-      :show-preview="false"
-      :initial-coverage="0.7"
+    <h2>裁切與預覽模式 (可移動背景)</h2>
+    <MovableBackgroundImageContainer
+      :show-preview="true"
+      :initial-coverage="0.5"
       :max-file-size="10 * 1024 * 1024"
       :aspect-ratio="9 / 16"
       @upload="handleUpload"

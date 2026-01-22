@@ -30,7 +30,6 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
   const imageUrl = ref<string>('')
   const imageName = ref<string>('')
   const imageMimeType = ref<string>('')
-  const cropData = ref<CropData>({ x: 0, y: 0, width: 0, height: 0 })
 
   const validateFile = (file: File): ValidationResult => {
     if (!ACCEPTED_FORMATS.includes(file.type as (typeof ACCEPTED_FORMATS)[number])) {
@@ -67,10 +66,6 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
     return { valid: true }
   }
 
-  const updateCropData = (data: CropData) => {
-    cropData.value = data
-  }
-
   const clear = () => {
     if (imageUrl.value) {
       URL.revokeObjectURL(imageUrl.value)
@@ -78,7 +73,6 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
     imageUrl.value = ''
     imageName.value = ''
     imageMimeType.value = ''
-    cropData.value = { x: 0, y: 0, width: 0, height: 0 }
   }
 
   return {
@@ -86,9 +80,7 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
     imageUrl,
     imageName,
     imageMimeType,
-    cropData,
     loadImage,
-    updateCropData,
     clear,
   }
 }

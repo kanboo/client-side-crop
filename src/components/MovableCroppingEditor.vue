@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import 'cropperjs'
-import type { CropperSelection, CropperCanvas, CropperImage } from 'cropperjs'
-import type { CropData } from '@/composables/useCropper'
+import type { CropperSelection } from 'cropperjs'
 
 interface Props {
   imageUrl: string
@@ -12,14 +11,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const emit = defineEmits<{
-  (e: 'trigger-file-input'): void
-  (e: 'change', detail: CropData): void
-}>()
-
 const selectionRef = ref<CropperSelection | null>(null)
-const canvasRef = ref<CropperCanvas | null>(null)
-const imageRef = ref<CropperImage | null>(null)
 
 defineExpose({
   selectionRef,
@@ -46,37 +38,6 @@ const handleImageTransform = (event: Event) => {
 
   // 禁止一切對圖片的變換
   event.preventDefault()
-}
-
-const handleSelectionChange = async (event: Event) => {
-  const customEvent = event as CustomEvent<CropData>
-  const { x, y, width, height } = customEvent.detail
-
-  if (canvasRef.value && imageRef.value) {
-    const canvasRect = canvasRef.value.getBoundingClientRect()
-    const imageRect = imageRef.value.getBoundingClientRect()
-
-    const limit = {
-      x: imageRect.left - canvasRect.left,
-      y: imageRect.top - canvasRect.top,
-      width: imageRect.width,
-      height: imageRect.height,
-    }
-
-    const EPSILON = 1.0 // Allow 1px tolerance for floating point errors
-    const isWithin =
-      x >= limit.x - EPSILON &&
-      y >= limit.y - EPSILON &&
-      x + width <= limit.x + limit.width + EPSILON &&
-      y + height <= limit.y + limit.height + EPSILON
-
-    if (!isWithin) {
-      event.preventDefault()
-      return
-    }
-  }
-
-  emit('change', customEvent.detail)
 }
 
 watch(
@@ -106,9 +67,8 @@ watch(
     @click="!imageUrl && $emit('trigger-file-input')"
   >
     <template v-if="imageUrl">
-      <cropper-canvas ref="canvasRef" background>
+      <cropper-canvas background>
         <cropper-image
-          ref="imageRef"
           :src="imageUrl"
           alt="Source Image"
           initial-center-size="contain"
@@ -125,9 +85,8 @@ watch(
           movable
           resizable
           zoomable
-          @change="handleSelectionChange"
         >
-          <cropper-grid role="grid"></cropper-grid>
+          <cropper-grid></cropper-grid>
           <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
           <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
           <cropper-handle action="n-resize"></cropper-handle>
