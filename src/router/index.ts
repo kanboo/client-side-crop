@@ -29,7 +29,7 @@ const router = createRouter({
     },
     {
       path: '/',
-      redirect: '/movable-cropping',
+      redirect: '/movable-background-image',
     },
   ],
 })

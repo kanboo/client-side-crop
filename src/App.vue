@@ -10,16 +10,6 @@ import { RouterLink, RouterView } from 'vue-router'
 
       <nav class="nav">
         <div class="nav-group">
-          <div class="nav-label">可移動裁切框</div>
-          <RouterLink to="/movable-cropping" class="nav-link" exact-active-class="active"
-            >裁切模式</RouterLink
-          >
-          <RouterLink to="/movable-cropping/preview" class="nav-link" exact-active-class="active"
-            >裁切 + 預覽</RouterLink
-          >
-        </div>
-
-        <div class="nav-group">
           <div class="nav-label">可移動背景圖片</div>
           <RouterLink to="/movable-background-image" class="nav-link" exact-active-class="active"
             >裁切模式</RouterLink
@@ -28,6 +18,16 @@ import { RouterLink, RouterView } from 'vue-router'
             to="/movable-background-image/preview"
             class="nav-link"
             exact-active-class="active"
+            >裁切 + 預覽</RouterLink
+          >
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">可移動裁切框</div>
+          <RouterLink to="/movable-cropping" class="nav-link" exact-active-class="active"
+            >裁切模式</RouterLink
+          >
+          <RouterLink to="/movable-cropping/preview" class="nav-link" exact-active-class="active"
             >裁切 + 預覽</RouterLink
           >
         </div>

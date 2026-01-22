@@ -49,7 +49,11 @@ defineExpose({
 const allowScaleTransform = ref(false)
 let scaleTransformTimer: ReturnType<typeof setTimeout> | null = null
 
-// 處理圖片變換事件，上傳期間允許，後續禁止縮放
+// 處理圖片變換事件
+// Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
+// 若直接將該屬性設為 false，圖片將無法自動置中與縮放。
+// 因此我們在上傳圖片後的短暫時間內允許變換 (allowScaleTransform = true)，
+// 待 initial layout 完成後，再透過此事件處理器攔截後續的使用者操作 (allowScaleTransform = false)。
 const handleImageTransform = (event: Event) => {
   // 第一次觸發時開始計時
   if (allowScaleTransform.value && scaleTransformTimer === null) {
