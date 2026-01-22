@@ -59,11 +59,12 @@ const handleSelectionChange = async (event: Event) => {
       height: canvasRect.height,
     }
 
+    const EPSILON = 1.0 // Allow 1px tolerance for floating point errors
     const isWithin =
-      x >= limit.x &&
-      y >= limit.y &&
-      x + width <= limit.x + limit.width &&
-      y + height <= limit.y + limit.height
+      x >= limit.x - EPSILON &&
+      y >= limit.y - EPSILON &&
+      x + width <= limit.x + limit.width + EPSILON &&
+      y + height <= limit.y + limit.height + EPSILON
 
     if (!isWithin) {
       event.preventDefault()
@@ -166,8 +167,8 @@ watch(
           zoomable
           @change="handleSelectionChange"
         >
-          <cropper-grid role="grid" covered></cropper-grid>
-          <cropper-crosshair centered></cropper-crosshair>
+          <cropper-grid role="grid"></cropper-grid>
+          <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
           <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
           <cropper-handle action="n-resize"></cropper-handle>
           <cropper-handle action="e-resize"></cropper-handle>

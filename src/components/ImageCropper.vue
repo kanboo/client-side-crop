@@ -245,7 +245,7 @@ onUnmounted(() => {
 
 .cropper-main.single-column {
   grid-template-columns: 1fr;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
   width: 100%;
 }
