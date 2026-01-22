@@ -168,7 +168,7 @@ src/
 │   ├── MovableBackgroundImageEditor.vue
 │   ├── MovableCroppingContainer.vue
 │   ├── MovableCroppingEditor.vue
-│   └── MovableCroppingPreview.vue
+│   └── CropperResultPreview.vue
 ├── composables/    # 共用邏輯
 │   └── useCropper.ts
 ├── views/          # 頁面元件

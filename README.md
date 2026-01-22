@@ -16,21 +16,27 @@
 
 ## 📦 元件使用
 
+本專案提供兩種裁切模式：
+
+1. **MovableCroppingContainer**: 圖片固定，移動裁切框 (預設)
+2. **MovableBackgroundImageContainer**: 裁切框固定，移動背景圖
+
 ### 基本使用
 
 ```vue
 <template>
-  <ImageCropper
+  <MovableCroppingContainer
     :initial-coverage="0.7"
     :max-file-size="10 * 1024 * 1024"
     :aspect-ratio="9 / 16"
+    :show-preview="true"
     @upload="handleUpload"
     @download="handleDownload"
   />
 </template>
 
 <script setup lang="ts">
-import ImageCropper from '@/components/ImageCropper.vue'
+import MovableCroppingContainer from '@/components/MovableCroppingContainer.vue'
 
 const handleUpload = (file: File) => {
   console.log('上傳檔案：', file)
@@ -44,11 +50,12 @@ const handleDownload = (blob: Blob) => {
 
 ### Props
 
-| 屬性              | 類型     | 預設值     | 說明                            |
-| ----------------- | -------- | ---------- | ------------------------------- |
-| `initialCoverage` | `number` | `0.7`      | 裁切框初始覆蓋比例 (0~1)        |
-| `maxFileSize`     | `number` | `10485760` | 最大檔案大小 (bytes)，預設 10MB |
-| `aspectRatio`     | `number` | `0.5625`   | 裁切比例，預設 9/16             |
+| 屬性              | 類型      | 預設值     | 說明                            |
+| ----------------- | --------- | ---------- | ------------------------------- |
+| `initialCoverage` | `number`  | `0.7`      | 裁切框初始覆蓋比例 (0~1)        |
+| `maxFileSize`     | `number`  | `10485760` | 最大檔案大小 (bytes)，預設 10MB |
+| `aspectRatio`     | `number`  | `0.5625`   | 裁切比例，預設 9/16             |
+| `showPreview`     | `boolean` | `true`     | 是否顯示即時預覽                |
 
 ### Events
 
@@ -80,7 +87,11 @@ const handleDownload = (blob: Blob) => {
 ```
 src/
 ├── components/
-│   └── ImageCropper.vue      # 主要裁切元件
+│   ├── MovableCroppingContainer.vue        # 裁切模式 1 (移動框) 容器
+│   ├── MovableBackgroundImageContainer.vue # 裁切模式 2 (移動圖) 容器
+│   ├── MovableCroppingEditor.vue           # 裁切模式 1 編輯器核心
+│   ├── MovableBackgroundImageEditor.vue    # 裁切模式 2 編輯器核心
+│   └── CropperResultPreview.vue            # 即時預覽元件
 ├── composables/
 │   └── useCropper.ts         # Cropper 邏輯封裝
 ├── types/
@@ -95,15 +106,15 @@ src/
 ### 方法 1：透過 Props（推薦）
 
 ```vue
-<ImageCropper :initial-coverage="0.5" />
+<MovableCroppingContainer :initial-coverage="0.5" />
 <!-- 50% 覆蓋 -->
-<ImageCropper :initial-coverage="0.8" />
+<MovableCroppingContainer :initial-coverage="0.8" />
 <!-- 80% 覆蓋 -->
 ```
 
 ### 方法 2：修改元件預設值
 
-編輯 `src/components/ImageCropper.vue`：
+編輯 `src/components/MovableCroppingContainer.vue`：
 
 ```typescript
 const props = withDefaults(defineProps<Props>(), {

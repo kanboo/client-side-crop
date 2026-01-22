@@ -3,9 +3,12 @@ import 'cropperjs'
 
 interface Props {
   imageUrl?: string
+  aspectRatio?: number
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  aspectRatio: 9 / 16,
+})
 </script>
 
 <template>
@@ -22,7 +25,7 @@ defineProps<Props>()
   border: 2px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: v-bind(aspectRatio);
   width: 100%;
   background: #f9fafb;
   display: flex;

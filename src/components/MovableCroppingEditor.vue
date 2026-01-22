@@ -143,7 +143,7 @@ watch(
   border-radius: 8px;
   overflow: hidden;
   width: 100%;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: v-bind(aspectRatio);
   position: relative;
 }
 

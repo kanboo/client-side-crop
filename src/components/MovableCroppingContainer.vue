@@ -2,7 +2,7 @@
 import { ref, onUnmounted } from 'vue'
 import { useCropper } from '@/composables/useCropper'
 import MovableCroppingEditor from './MovableCroppingEditor.vue'
-import MovableCroppingPreview from './MovableCroppingPreview.vue'
+import CropperResultPreview from './CropperResultPreview.vue'
 
 interface Props {
   initialCoverage?: number
@@ -165,7 +165,7 @@ onUnmounted(() => {
 
         <div v-if="showPreview" class="cropper-section">
           <div class="section-title">即時預覽</div>
-          <MovableCroppingPreview :image-url="imageUrl" />
+          <CropperResultPreview :image-url="imageUrl" :aspect-ratio="aspectRatio" />
         </div>
       </div>
 
