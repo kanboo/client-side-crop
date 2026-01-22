@@ -41,7 +41,7 @@ const handleImageTransform = (event: Event) => {
     return
   }
 
-  // 否則阻止縮放行為
+  // 禁止一切對圖片的變換
   event.preventDefault()
 }
 
@@ -51,12 +51,13 @@ const handleSelectionChange = async (event: Event) => {
 
   if (canvasRef.value && imageRef.value) {
     const canvasRect = canvasRef.value.getBoundingClientRect()
+    const imageRect = imageRef.value.getBoundingClientRect()
 
     const limit = {
-      x: 0,
-      y: 0,
-      width: canvasRect.width,
-      height: canvasRect.height,
+      x: imageRect.left - canvasRect.left,
+      y: imageRect.top - canvasRect.top,
+      width: imageRect.width,
+      height: imageRect.height,
     }
 
     const EPSILON = 1.0 // Allow 1px tolerance for floating point errors
