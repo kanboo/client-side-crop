@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onScopeDispose } from 'vue'
 
 const ACCEPTED_FORMATS = [
   'image/jpeg',
@@ -6,8 +6,18 @@ const ACCEPTED_FORMATS = [
   'image/gif',
   'image/webp',
   'image/bmp',
-  // 注意：雖然允許驗證通過 HEIC/HEIF 格式，但大多數瀏覽器原生不支援直接顯示。
-  // 若需在瀏覽器預覽，建議使用轉檔套件（如 heic2any）進行轉換。
+  // ⚠️ HEIC/HEIF 格式限制說明:
+  // 1. 瀏覽器原生支援情況:
+  //    - Chrome/Edge/Firefox (桌面版): ❌ 不支援 (無法直接預覽 HEIC 圖片)
+  //    - Safari (macOS/iOS): ✅ 支援
+  // 2. 目前實作:
+  //    - 允許檔案選擇 (驗證會通過)
+  //    - 但 Chrome/Edge/Firefox 使用者會看到空白預覽區 (因為 <cropper-image> 無法載入)
+  // 3. 解決方案選項:
+  //    Option A: 移除 HEIC/HEIF (建議用於大多數使用者)
+  //    Option B: 整合 heic2any (https://github.com/alexcorvi/heic2any) 進行客戶端轉換
+  //    Option C: 後端 API 轉換 (需要額外開發)
+  // 4. 當前決策: 保留格式驗證,但使用者體驗在非 Safari 瀏覽器會有問題
   'image/heic',
   'image/heif',
   'image/avif',
@@ -74,6 +84,10 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
     imageName.value = ''
     imageMimeType.value = ''
   }
+
+  onScopeDispose(() => {
+    clear()
+  })
 
   return {
     ACCEPT_STRING,

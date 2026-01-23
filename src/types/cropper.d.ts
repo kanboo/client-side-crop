@@ -1,5 +1,23 @@
+/**
+ * Cropper.js v2 型別擴充
+ * 官方已匯出基本型別,這裡僅補充專案需要的額外方法定義
+ *
+ * 官方文件: https://fengyuanchen.github.io/cropperjs/
+ * 最後同步版本: v2.1.0
+ *
+ * ⚠️ 升級 cropperjs 時請檢查此檔案是否需要更新
+ */
+
+// 從 cropperjs 匯入官方型別
+import type {
+  CropperSelection as BaseCropperSelection,
+  CropperImage as BaseCropperImage,
+  CropperCanvas,
+} from 'cropperjs'
+
+// 擴充 CropperSelection,加入專案使用的方法
 declare module 'cropperjs' {
-  export interface CropperSelection extends HTMLElement {
+  export interface CropperSelection extends BaseCropperSelection {
     x: number
     y: number
     width: number
@@ -15,27 +33,16 @@ declare module 'cropperjs' {
     $clear(): CropperSelection
   }
 
-  export interface CropperImage extends HTMLElement {
+  export interface CropperImage extends BaseCropperImage {
     src: string
     $getTransform(): [number, number, number, number, number, number]
   }
-
-  export type CropperCanvas = HTMLElement
-
-  export default class Cropper {
-    constructor(
-      element: HTMLImageElement | HTMLCanvasElement | string,
-      options?: Record<string, unknown>,
-    )
-    getCropperSelection(): CropperSelection | null
-    getCropperImage(): CropperImage | null
-    destroy(): void
-  }
 }
 
+// 註冊 HTML 元素標籤對應
 declare global {
   interface HTMLElementTagNameMap {
-    'cropper-canvas': import('cropperjs').CropperCanvas
+    'cropper-canvas': CropperCanvas
     'cropper-image': import('cropperjs').CropperImage
     'cropper-selection': import('cropperjs').CropperSelection
     'cropper-shade': HTMLElement
