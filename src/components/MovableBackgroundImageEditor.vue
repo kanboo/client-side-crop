@@ -43,6 +43,50 @@ const toCanvas = async () => {
   })
 }
 
+const onTransform = (event: CustomEvent) => {
+  const selection = selectionRef.value
+  const image = cropperImageRef.value
+  if (!selection || !image) return
+
+  const selectionRect = selection.getBoundingClientRect()
+  const canvas = image.parentElement as HTMLElement
+  if (!canvas) return
+
+  // 1. 複製 cropper image 元素
+  const imageClone = image.cloneNode() as CropperImage
+
+  // 2. 將新的變換矩陣應用到複製的圖片上
+  imageClone.style.transform = `matrix(${event.detail.matrix.join(', ')})`
+
+  // 3. 隱藏複製的圖片
+  imageClone.style.opacity = '0'
+  imageClone.style.pointerEvents = 'none'
+
+  // 4. 將複製的圖片加入到 cropper canvas 中
+  canvas.appendChild(imageClone)
+
+  // 5. 計算複製圖片的邊界
+  const imageRect = imageClone.getBoundingClientRect()
+
+  // 6. 移除複製的圖片
+  canvas.removeChild(imageClone)
+
+  // 7. 如果圖片沒有完全覆蓋選取範圍，則阻止變換
+  // 圖片覆蓋選取範圍的條件：
+  // image.top <= selection.top
+  // image.right >= selection.right
+  // image.bottom >= selection.bottom
+  // image.left <= selection.left
+  if (
+    imageRect.top > selectionRect.top ||
+    imageRect.right < selectionRect.right ||
+    imageRect.bottom < selectionRect.bottom ||
+    imageRect.left > selectionRect.left
+  ) {
+    event.preventDefault()
+  }
+}
+
 defineExpose({
   selectionRef,
   toCanvas,
@@ -69,10 +113,11 @@ watch(
           ref="cropperImageRef"
           :src="imageUrl"
           alt="Source Image"
-          initial-center-size="contain"
+          initial-center-size="cover"
           scalable
           skewable
           translatable
+          @transform="onTransform"
         ></cropper-image>
         <cropper-handle action="move" plain />
         <cropper-selection
