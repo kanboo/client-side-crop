@@ -4,16 +4,18 @@ import 'cropperjs'
 interface Props {
   imageUrl?: string
   aspectRatio?: number
+  selectionSelector?: string
 }
 
 withDefaults(defineProps<Props>(), {
   aspectRatio: 9 / 16,
+  selectionSelector: '#cropper-selection-main',
 })
 </script>
 
 <template>
   <div class="preview-wrapper">
-    <cropper-viewer v-if="imageUrl" selection="#cropper-selection-main"></cropper-viewer>
+    <cropper-viewer v-if="imageUrl" :selection="selectionSelector"></cropper-viewer>
     <div v-else class="empty-state">
       <div class="preview-placeholder-text">預覽區域</div>
     </div>

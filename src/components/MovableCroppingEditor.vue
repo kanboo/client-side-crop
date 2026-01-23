@@ -7,9 +7,12 @@ interface Props {
   imageUrl: string
   initialCoverage: number
   aspectRatio: number
+  selectionId?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  selectionId: 'cropper-selection-main',
+})
 
 const selectionRef = ref<CropperSelection | null>(null)
 const cropperImageRef = ref<CropperImage | null>(null)
@@ -114,7 +117,7 @@ watch(
         ></cropper-image>
         <cropper-handle />
         <cropper-selection
-          id="cropper-selection-main"
+          :id="selectionId"
           ref="selectionRef"
           :initial-coverage="initialCoverage"
           :aspect-ratio="aspectRatio"

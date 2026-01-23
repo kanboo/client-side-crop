@@ -29,6 +29,8 @@ const { ACCEPT_STRING, imageUrl, imageName, imageMimeType, loadImage, clear } = 
   props.maxFileSize,
 )
 
+const selectionId = `cropper-selection-${crypto.randomUUID()}`
+
 const fileInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref<string>('')
 const selectionRef = ref<InstanceType<typeof MovableCroppingEditor> | null>(null)
@@ -159,13 +161,18 @@ onUnmounted(() => {
             :image-url="imageUrl"
             :initial-coverage="initialCoverage"
             :aspect-ratio="aspectRatio"
+            :selection-id="selectionId"
             @trigger-file-input="triggerFileInput"
           />
         </div>
 
         <div v-if="showPreview" class="cropper-section">
           <div class="section-title">即時預覽</div>
-          <CropperResultPreview :image-url="imageUrl" :aspect-ratio="aspectRatio" />
+          <CropperResultPreview
+            :image-url="imageUrl"
+            :aspect-ratio="aspectRatio"
+            :selection-selector="`#${selectionId}`"
+          />
         </div>
       </div>
 
