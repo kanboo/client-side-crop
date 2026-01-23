@@ -78,6 +78,122 @@ const handleImageTransform = (event: Event) => {
   event.preventDefault()
 }
 
+// 標記是否為程式化更新 (避免被邊界檢查擋住)
+const isProgrammaticUpdate = ref(false)
+
+// 自動將裁切框縮放到圖片範圍內 (保持比例)
+//
+// [為什麼需要這個函式？]
+// Cropper.js 原生的 initial-coverage 屬性是用來設定裁切框佔「容器 (Canvas)」的比例，而不是佔「圖片」的比例。
+// 當圖片長寬比與 Canvas 不一致時（例如：橫向圖片在直向 Canvas 中），圖片只會佔據 Canvas 的中間一部分。
+//
+// 這時如果單純依賴 initial-coverage，裁切框會根據 Canvas 尺寸計算，導致初始框可能遠大於圖片本身。
+// 加上我們實作了「邊界檢查 (Boundary Check)」，這會導致初始框因為超出圖片邊界而無法被縮小或移動（被擋住）。
+//
+// [解決方案]
+// 此函式會在圖片載入並佈局完成後 ($ready) 觸發，它會：
+// 1. 取得圖片在 Canvas 中的實際顯示位置與尺寸 (getBoundingClientRect)。
+// 2. 計算出能「完整塞入圖片內」的最大 9:16 矩形。
+// 3. 乘上 initialCoverage (預設 0.7) 得到最終尺寸。
+// 4. 強制將裁切框更新到該尺寸並置中。
+// 5. 過程中暫時繞過邊界檢查 (isProgrammaticUpdate)，確保更新成功。
+const fitSelectionToImage = () => {
+  const image = cropperImageRef.value
+  const selection = selectionRef.value
+  if (!image || !selection) return
+
+  // 取得 Canvas 元素
+  const canvas = selection.parentElement as HTMLElement
+  if (!canvas) return
+
+  const imageRect = image.getBoundingClientRect()
+  const canvasRect = canvas.getBoundingClientRect()
+
+  // 計算圖片在 Canvas 中的相對位置與尺寸
+  const imgX = imageRect.left - canvasRect.left
+  const imgY = imageRect.top - canvasRect.top
+  const imgW = imageRect.width
+  const imgH = imageRect.height
+
+  // 目標長寬比
+  const R = props.aspectRatio
+  // 初始覆蓋比例
+  const coverage = props.initialCoverage
+
+  // 計算符合比例的最大尺寸
+  // 先嘗試以寬度為基準
+  let w = imgW * coverage
+  let h = w / R
+
+  // 如果高度超出，改以高度為基準
+  if (h > imgH) {
+    h = imgH * coverage
+    w = h * R
+  }
+
+  // 避免計算出的尺寸為 0 (極端情況)
+  if (w <= 0 || h <= 0) return
+
+  // 計算置中位置
+  const x = imgX + (imgW - w) / 2
+  const y = imgY + (imgH - h) / 2
+
+  // 標記為程式化更新，允許通過檢查
+  isProgrammaticUpdate.value = true
+
+  // 更新選取框
+  selection.$change(x, y, w, h)
+
+  // 在下一個 tick 重置標記
+  nextTick(() => {
+    isProgrammaticUpdate.value = false
+  })
+}
+
+// 檢查選取框是否在限制範圍內
+const inSelection = (
+  selection: { x: number; y: number; width: number; height: number },
+  maxSelection: { x: number; y: number; width: number; height: number },
+) => {
+  // 使用稍微寬鬆的檢查（epsilon）來避免浮點數精度問題
+  const EPSILON = 0.1
+  return (
+    selection.x >= maxSelection.x - EPSILON &&
+    selection.y >= maxSelection.y - EPSILON &&
+    selection.x + selection.width <= maxSelection.x + maxSelection.width + EPSILON &&
+    selection.y + selection.height <= maxSelection.y + maxSelection.height + EPSILON
+  )
+}
+
+const handleSelectionChange = (event: CustomEvent) => {
+  // 如果是程式化更新，直接允許
+  if (isProgrammaticUpdate.value) return
+
+  const selection = event.detail
+  const image = cropperImageRef.value
+  const selectionElement = selectionRef.value
+
+  if (!image || !selectionElement) return
+
+  // 取得 Canvas 元素 (selection 的父元素)
+  const canvas = selectionElement.parentElement as HTMLElement
+  if (!canvas) return
+
+  const imageRect = image.getBoundingClientRect()
+  const canvasRect = canvas.getBoundingClientRect()
+
+  const maxSelection = {
+    x: imageRect.left - canvasRect.left,
+    y: imageRect.top - canvasRect.top,
+    width: imageRect.width,
+    height: imageRect.height,
+  }
+
+  if (!inSelection(selection, maxSelection)) {
+    event.preventDefault()
+  }
+}
+
 watch(
   () => props.imageUrl,
   async () => {
@@ -94,6 +210,17 @@ watch(
     allowScaleTransform.value = true
 
     await nextTick()
+
+    const image = cropperImageRef.value
+    if (image) {
+      try {
+        await image.$ready()
+        // 圖片載入完成，立即執行一次適應
+        fitSelectionToImage()
+      } catch (error) {
+        console.error('Failed to load image:', error)
+      }
+    }
   },
 )
 </script>
@@ -124,6 +251,7 @@ watch(
           movable
           resizable
           zoomable
+          @change="handleSelectionChange"
         >
           <cropper-grid bordered covered rows="1" columns="1" theme-color="#000000"></cropper-grid>
           <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
