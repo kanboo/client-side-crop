@@ -49,6 +49,9 @@ defineExpose({
 const allowScaleTransform = ref(false)
 let scaleTransformTimer: ReturnType<typeof setTimeout> | null = null
 
+// 允許初始自動縮放的時間窗口 (毫秒)
+const INITIAL_SCALE_TRANSFORM_DELAY = 100
+
 // 處理圖片變換事件
 // Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
 // 若直接將該屬性設為 false，圖片將無法自動置中與縮放。
@@ -60,7 +63,7 @@ const handleImageTransform = (event: Event) => {
     scaleTransformTimer = setTimeout(() => {
       allowScaleTransform.value = false
       scaleTransformTimer = null
-    }, 500)
+    }, INITIAL_SCALE_TRANSFORM_DELAY)
   }
 
   // 如果在允許期間，直接通過
@@ -119,7 +122,7 @@ watch(
           resizable
           zoomable
         >
-          <cropper-grid></cropper-grid>
+          <cropper-grid bordered covered rows="1" columns="1" theme-color="#000000"></cropper-grid>
           <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
           <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
           <cropper-handle action="n-resize"></cropper-handle>

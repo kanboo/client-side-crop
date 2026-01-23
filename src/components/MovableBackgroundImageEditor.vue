@@ -78,7 +78,7 @@ watch(
           :initial-coverage="initialCoverage"
           :aspect-ratio="aspectRatio"
         >
-          <cropper-grid></cropper-grid>
+          <cropper-grid bordered covered rows="1" columns="1" theme-color="#000000"></cropper-grid>
           <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
           <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
         </cropper-selection>
