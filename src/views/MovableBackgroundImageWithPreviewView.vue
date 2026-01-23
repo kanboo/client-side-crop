@@ -15,7 +15,7 @@ const handleDownload = (blob: Blob) => {
     <h2>裁切與預覽模式 (可移動背景)</h2>
     <MovableBackgroundImageContainer
       :show-preview="true"
-      :initial-coverage="0.5"
+      :initial-coverage="0.6"
       :max-file-size="10 * 1024 * 1024"
       :aspect-ratio="9 / 16"
       @upload="handleUpload"
