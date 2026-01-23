@@ -31,17 +31,12 @@ export interface CropData {
   height: number
 }
 
-interface ValidationResult {
-  valid: boolean
-  error?: string
-}
-
 export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
   const imageUrl = ref<string>('')
   const imageName = ref<string>('')
   const imageMimeType = ref<string>('')
 
-  const validateFile = (file: File): ValidationResult => {
+  const validateFile = (file: File) => {
     if (!ACCEPTED_FORMATS.includes(file.type as (typeof ACCEPTED_FORMATS)[number])) {
       return {
         valid: false,
@@ -59,7 +54,7 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
     return { valid: true }
   }
 
-  const loadImage = (file: File): ValidationResult => {
+  const loadImage = (file: File) => {
     const validation = validateFile(file)
     if (!validation.valid) {
       return validation
