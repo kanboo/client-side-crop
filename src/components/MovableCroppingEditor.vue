@@ -50,10 +50,6 @@ defineExpose({
 
 // 標記是否允許縮放變換（上傳圖片後短時間內允許）
 const allowScaleTransform = ref(false)
-let scaleTransformTimer: ReturnType<typeof setTimeout> | null = null
-
-// 允許初始自動縮放的時間窗口 (毫秒)
-const INITIAL_SCALE_TRANSFORM_DELAY = 100
 
 // 處理圖片變換事件
 // Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
@@ -61,14 +57,6 @@ const INITIAL_SCALE_TRANSFORM_DELAY = 100
 // 因此我們在上傳圖片後的短暫時間內允許變換 (allowScaleTransform = true)，
 // 待 initial layout 完成後，再透過此事件處理器攔截後續的使用者操作 (allowScaleTransform = false)。
 const handleImageTransform = (event: Event) => {
-  // 第一次觸發時開始計時
-  if (allowScaleTransform.value && scaleTransformTimer === null) {
-    scaleTransformTimer = setTimeout(() => {
-      allowScaleTransform.value = false
-      scaleTransformTimer = null
-    }, INITIAL_SCALE_TRANSFORM_DELAY)
-  }
-
   // 如果在允許期間，直接通過
   if (allowScaleTransform.value) {
     return
@@ -199,12 +187,6 @@ watch(
   async () => {
     if (!props.imageUrl) return
 
-    // 清除舊的計時器（如果存在）
-    if (scaleTransformTimer !== null) {
-      clearTimeout(scaleTransformTimer)
-      scaleTransformTimer = null
-    }
-
     // 開啟允許縮放的時間窗口（讓 contain 自動縮放可以執行）
     // 計時會在第一次觸發 handleImageTransform 時開始
     allowScaleTransform.value = true
@@ -215,7 +197,13 @@ watch(
     if (image) {
       try {
         await image.$ready()
-        // 圖片載入完成，立即執行一次適應
+
+        // 保險起見，等待一個 tick 讓 Cropper 內部完成初始的 layout/transform (contain)
+        // 避免 allowScaleTransform 過早關閉導致初始置中被攔截
+        await nextTick()
+        allowScaleTransform.value = false
+
+        // 圖片載入完成，立即執行一次裁切框調整
         fitSelectionToImage()
       } catch (error) {
         console.error('Failed to load image:', error)
