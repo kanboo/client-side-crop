@@ -177,8 +177,25 @@ const props = withDefaults(defineProps<Props>(), {
 - **框架**：Vue 3 (Composition API + script setup)
 - **語言**：TypeScript 5.9
 - **建置工具**：Vite 7
-- **裁切套件**：Cropper.js v2.1.0
+- **裁切套件**：[Cropper.js v2.1.0](https://github.com/fengyuanchen/cropperjs) (MIT License)
 - **程式碼規範**：ESLint + Prettier
+
+## 📄 授權與套件使用
+
+### Cropper.js 授權
+
+本專案使用 [Cropper.js](https://github.com/fengyuanchen/cropperjs) 作為核心裁切引擎。
+
+- **授權類型**：MIT License
+- **作者**：[Fengyuan Chen](https://github.com/fengyuanchen)
+- **版本**：v2.1.0
+- **授權內容**：MIT License 允許商業使用、修改、散佈和私人使用，唯一要求是保留原始授權聲明
+
+### 相關資源
+
+- [Cropper.js GitHub Repository](https://github.com/fengyuanchen/cropperjs)
+- [Cropper.js 官方文檔](https://github.com/fengyuanchen/cropperjs/blob/main/README.md)
+- [MIT License 完整內容](https://github.com/fengyuanchen/cropperjs/blob/main/LICENSE)
 
 ## Project Setup
 
