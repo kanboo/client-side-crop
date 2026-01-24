@@ -17,12 +17,13 @@
 
 - **多步驟任務**: 必須先建立 **Todo List** (`todowrite`)。
 - **狀態追蹤**: 確實標記 `in_progress` 與 `completed`。
-- **單一執行**: 一次只進行一個 Todo項目。
+- **單一執行**: 一次只進行一個 Todo 項目。
 
 ### 3. 驗證與除錯
 
 - **LSP 檢查**: 修改程式碼後，**必須** 執行 `lsp_diagnostics` 確保無語法錯誤。
-- **型別檢查**: 提交前執行 `npm run type-check`。
+- **型別檢查**: 每次修改後執行 `npm run type-check`。
+- **Lint 檢查**: 執行 `npm run lint` 自動修正格式問題。
 
 ## 專案概述
 
@@ -64,6 +65,13 @@ npm run format
 
 ## 程式碼風格規範
 
+### ESLint 配置
+
+- **版本**: ESLint 9.x (Flat Config)
+- **規則集**: Vue Essential + TypeScript Recommended
+- **自動修正**: `npm run lint` (包含 `--fix` 與 `--cache`)
+- **Prettier 整合**: 已配置 `skip-formatting` 避免規則衝突
+
 ### 匯入 (Imports)
 
 **強制使用路徑別名**:
@@ -79,10 +87,10 @@ import MovableCroppingEditor from '../components/MovableCroppingEditor.vue'
 
 **匯入順序** (推薦):
 
-1. Vue/第三方套件
-2. 本地 composables/utilities
-3. 本地元件
-4. 型別定義 (使用 `import type`)
+1. Vue/第三方套件 (`vue`, `cropperjs` 等)
+2. 本地 composables/utilities (`@/composables/*`)
+3. 本地元件 (`@/components/*`)
+4. 型別定義 (使用 `import type` 分離型別匯入)
 
 ### 函式宣告
 
@@ -142,14 +150,34 @@ const props = withDefaults(defineProps<Props>(), {
 不要拋出異常 (throw)，而是回傳包含狀態的物件：
 
 ```typescript
+// ✅ 正確: 回傳結果物件
 interface ValidationResult {
   valid: boolean
   error?: string
 }
-// 使用
+
+const validateFile = (file: File) => {
+  if (!ACCEPTED_FORMATS.includes(file.type)) {
+    return { valid: false, error: '不支援的圖片格式' }
+  }
+  if (file.size > maxFileSize) {
+    return { valid: false, error: '圖片大小超過限制' }
+  }
+  return { valid: true }
+}
+
+// 使用方式
 const result = validateFile(file)
 if (!result.valid) {
-  /* handle error */
+  errorMessage.value = result.error || '發生錯誤'
+  return
+}
+
+// ❌ 錯誤: 拋出異常
+const validateFile = (file: File) => {
+  if (!ACCEPTED_FORMATS.includes(file.type)) {
+    throw new Error('不支援的圖片格式')
+  }
 }
 ```
 
@@ -194,4 +222,4 @@ src/
 
 ---
 
-**最後更新**: 2026-01-22
+**最後更新**: 2026-01-24
