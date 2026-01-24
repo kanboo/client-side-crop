@@ -2,6 +2,7 @@
 import { ref, watch, nextTick } from 'vue'
 import 'cropperjs'
 import type { CropperSelection, CropperImage } from 'cropperjs'
+import { calculateFitSelection } from '@/composables/useCropperCalculation'
 
 interface Props {
   imageUrl: string
@@ -10,9 +11,16 @@ interface Props {
   selectionId?: string
 }
 
+interface Emits {
+  (e: 'trigger-file-input'): void
+  (e: 'load-error', error: Error): void
+}
+
 const props = withDefaults(defineProps<Props>(), {
   selectionId: 'cropper-selection-main',
 })
+
+const emit = defineEmits<Emits>()
 
 const selectionRef = ref<CropperSelection | null>(null)
 const cropperImageRef = ref<CropperImage | null>(null)
@@ -135,44 +143,22 @@ const fitSelectionToImage = () => {
   const selection = selectionRef.value
   if (!image || !selection) return
 
-  // 取得 Canvas 元素
   const canvas = selection.parentElement as HTMLElement
   if (!canvas) return
 
   const imageRect = image.getBoundingClientRect()
   const canvasRect = canvas.getBoundingClientRect()
 
-  // 計算圖片在 Canvas 中的相對位置與尺寸
-  const imgX = imageRect.left - canvasRect.left
-  const imgY = imageRect.top - canvasRect.top
-  const imgW = imageRect.width
-  const imgH = imageRect.height
+  const result = calculateFitSelection(
+    imageRect,
+    canvasRect,
+    props.aspectRatio,
+    props.initialCoverage,
+  )
 
-  // 目標長寬比
-  const R = props.aspectRatio
-  // 初始覆蓋比例
-  const coverage = props.initialCoverage
+  if (!result) return
 
-  // 計算符合比例的最大尺寸
-  // 先嘗試以寬度為基準
-  let w = imgW * coverage
-  let h = w / R
-
-  // 如果高度超出，改以高度為基準
-  if (h > imgH) {
-    h = imgH * coverage
-    w = h * R
-  }
-
-  // 避免計算出的尺寸為 0 (極端情況)
-  if (w <= 0 || h <= 0) return
-
-  // 計算置中位置
-  const x = imgX + (imgW - w) / 2
-  const y = imgY + (imgH - h) / 2
-
-  // 更新選取框
-  selection.$change(x, y, w, h)
+  selection.$change(result.x, result.y, result.width, result.height)
 }
 
 defineExpose({
@@ -204,7 +190,9 @@ watch(
         // 圖片載入完成，立即執行一次裁切框調整
         fitSelectionToImage()
       } catch (error) {
-        console.error('Failed to load image:', error)
+        const err = error instanceof Error ? error : new Error(String(error))
+        console.error('Failed to load image:', err)
+        emit('load-error', err)
       }
     }
   },

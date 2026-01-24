@@ -1,16 +1,36 @@
 <script setup lang="ts">
 import 'cropperjs'
+import { watch } from 'vue'
 
+/**
+ * 即時預覽元件屬性
+ * @property {string} [imageUrl] - 圖片 URL (來自 useCropper)
+ * @property {number} [aspectRatio=9/16] - 預覽區域寬高比 (0.5625 = 9:16)
+ * @property {string} [selectionSelector='#cropper-selection-main'] - Cropper.js 選取框 CSS 選擇器
+ */
 interface Props {
   imageUrl?: string
   aspectRatio?: number
   selectionSelector?: string
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   aspectRatio: 9 / 16,
   selectionSelector: '#cropper-selection-main',
 })
+
+// Props 驗證：檢查 aspectRatio 是否為有效數值
+watch(
+  () => props.aspectRatio,
+  (newRatio) => {
+    if (newRatio !== undefined && (newRatio <= 0 || !Number.isFinite(newRatio))) {
+      console.warn(
+        `[CropperResultPreview] aspectRatio 必須為大於 0 的有限數值，當前值：${newRatio}`,
+      )
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

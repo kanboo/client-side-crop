@@ -5,9 +5,13 @@ import MovableBackgroundImageEditor from './MovableBackgroundImageEditor.vue'
 import CropperResultPreview from './CropperResultPreview.vue'
 
 interface Props {
+  /** 裁切框初始覆蓋比例 (範圍: 0.1 ~ 1.0) */
   initialCoverage?: number
+  /** 最大檔案大小限制，單位 bytes (建議: 1MB ~ 50MB) */
   maxFileSize?: number
+  /** 裁切框長寬比 (width / height)，例如 9/16 = 0.5625 */
   aspectRatio?: number
+  /** 是否顯示即時預覽 */
   showPreview?: boolean
 }
 
@@ -24,6 +28,24 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+if (props.initialCoverage < 0.1 || props.initialCoverage > 1) {
+  console.warn(
+    `[MovableBackgroundImageContainer] initialCoverage 應介於 0.1 ~ 1.0，目前值: ${props.initialCoverage}`,
+  )
+}
+
+if (props.maxFileSize < 1024 * 1024 || props.maxFileSize > 50 * 1024 * 1024) {
+  console.warn(
+    `[MovableBackgroundImageContainer] maxFileSize 建議介於 1MB ~ 50MB，目前值: ${(props.maxFileSize / 1024 / 1024).toFixed(2)}MB`,
+  )
+}
+
+if (props.aspectRatio <= 0) {
+  console.warn(
+    `[MovableBackgroundImageContainer] aspectRatio 必須大於 0，目前值: ${props.aspectRatio}`,
+  )
+}
 
 const { ACCEPT_STRING, imageUrl, imageName, imageMimeType, loadImage, clear } = useCropper(
   props.maxFileSize,
@@ -62,6 +84,10 @@ const handleCancel = () => {
     fileInput.value.value = ''
   }
   errorMessage.value = ''
+}
+
+const handleLoadError = (error: Error) => {
+  errorMessage.value = error.message || '圖片載入失敗'
 }
 
 const handleDownload = async () => {
@@ -163,6 +189,7 @@ onUnmounted(() => {
             :aspect-ratio="aspectRatio"
             :selection-id="selectionId"
             @trigger-file-input="triggerFileInput"
+            @load-error="handleLoadError"
           />
         </div>
 
