@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
   selectionId: 'cropper-selection-main',
 })
 
+const containerRef = ref<HTMLElement | null>(null)
 const selectionRef = ref<CropperSelection | null>(null)
 const cropperImageRef = ref<CropperImage | null>(null)
 
@@ -182,6 +183,35 @@ const handleSelectionChange = (event: CustomEvent) => {
   }
 }
 
+// 覆寫 cropper-handle 的樣式
+//
+// [為什麼需要這個函式？]
+// `cropper-handle` 是一個 Web Component (Custom Element)，使用了 Shadow DOM 技術封裝樣式。
+// 這導致外部 CSS (即使不加 scoped) 無法穿透影響其內部結構，且該套件將控制點大小寫死 (width: 5px) 在內部樣式中。
+//
+// [解決方案]
+// 透過 JavaScript 取得該元件的 `shadowRoot`，直接注入新的 `<style>` 規則來覆寫內部樣式。
+// 這相當於在它的 Shadow DOM 內部貼了一張新壁紙，強制將控制點大小改為 8px，提升移動裝置上的操作體驗。
+const overrideHandleStyles = () => {
+  if (!containerRef.value) return
+  // 查找所有的 cropper-handle 元素
+  const handles = containerRef.value.querySelectorAll('cropper-handle')
+  handles.forEach((handle) => {
+    // 確保有 shadowRoot
+    if (handle.shadowRoot) {
+      const style = document.createElement('style')
+      // 設定寬高為 8px
+      style.textContent = `
+        :host([action$="-resize"])::after {
+          width: 8px !important;
+          height: 8px !important;
+        }
+      `
+      handle.shadowRoot.appendChild(style)
+    }
+  })
+}
+
 watch(
   () => props.imageUrl,
   async () => {
@@ -192,6 +222,9 @@ watch(
     allowScaleTransform.value = true
 
     await nextTick()
+
+    // 注入樣式
+    overrideHandleStyles()
 
     const image = cropperImageRef.value
     if (image) {
@@ -210,17 +243,19 @@ watch(
       }
     }
   },
+  { immediate: true },
 )
 </script>
 
 <template>
   <div
+    ref="containerRef"
     class="cropper-editor"
     :class="{ 'is-empty': !imageUrl }"
     @click="!imageUrl && $emit('trigger-file-input')"
   >
     <template v-if="imageUrl">
-      <cropper-canvas background scale-step="0.03">
+      <cropper-canvas background scale-step="0.05">
         <cropper-image
           ref="cropperImageRef"
           :src="imageUrl"

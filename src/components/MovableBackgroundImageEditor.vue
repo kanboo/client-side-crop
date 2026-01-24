@@ -218,7 +218,7 @@ watch(
     @click="!imageUrl && $emit('trigger-file-input')"
   >
     <template v-if="imageUrl">
-      <cropper-canvas background scale-step="0.03">
+      <cropper-canvas background scale-step="0.02">
         <cropper-image
           ref="cropperImageRef"
           :src="imageUrl"
