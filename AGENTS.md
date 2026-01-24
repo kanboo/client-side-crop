@@ -60,8 +60,27 @@ npm run format
 
 ### 測試相關
 
-**目前狀態**: 專案尚未設定測試框架  
-**預留結構**: `src/**/__tests__/*` 已在 tsconfig 中排除
+**框架**: Vitest + Vue Test Utils + happy-dom  
+**測試環境**: happy-dom (輕量級 DOM 模擬)
+
+```bash
+# 執行所有測試 (watch 模式)
+npm run test
+
+# 執行測試並開啟 UI 介面
+npm run test:ui
+
+# 執行測試一次 (CI 模式)
+npm run test:run
+
+# 執行單一測試檔案
+npm run test -- src/composables/__tests__/useCropper.spec.ts
+
+# 執行單一測試區塊 (describe/it)
+npm run test -- -t "loadImage"
+```
+
+**測試檔案位置**: `src/**/__tests__/*.spec.ts`
 
 ## 程式碼風格規範
 
