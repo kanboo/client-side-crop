@@ -46,31 +46,22 @@ const toCanvas = async () => {
 // 標記是否允許縮放變換（上傳圖片後短時間內允許）
 const allowScaleTransform = ref(false)
 
-// 處理圖片變換事件
-// Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
-// 若直接將該屬性設為 false，圖片將無法自動置中與縮放。
-// 因此我們在上傳圖片後的短暫時間內允許變換 (allowScaleTransform = true)，
-// 待 initial layout 完成後，再透過此事件處理器攔截後續的使用者操作 (allowScaleTransform = false)。
-const onTransform = (event: CustomEvent) => {
-  // 如果在允許期間，直接通過
-  if (allowScaleTransform.value) {
-    return
-  }
-
-  // 進行邊界檢查
-  const selection = selectionRef.value
-  const image = cropperImageRef.value
-  if (!selection || !image) return
+// 檢查變換後的圖片是否在選取範圍內
+const isTransformWithinSelection = (
+  image: CropperImage,
+  selection: CropperSelection,
+  matrix: number[],
+) => {
+  const canvas = image.parentElement as HTMLElement
+  if (!canvas) return true
 
   const selectionRect = selection.getBoundingClientRect()
-  const canvas = image.parentElement as HTMLElement
-  if (!canvas) return
 
   // 1. 複製 cropper image 元素
   const imageClone = image.cloneNode() as CropperImage
 
   // 2. 將新的變換矩陣應用到複製的圖片上
-  imageClone.style.transform = `matrix(${event.detail.matrix.join(', ')})`
+  imageClone.style.transform = `matrix(${matrix.join(', ')})`
 
   // 3. 隱藏複製的圖片
   imageClone.style.opacity = '0'
@@ -97,6 +88,29 @@ const onTransform = (event: CustomEvent) => {
     imageRect.bottom < selectionRect.bottom ||
     imageRect.left > selectionRect.left
   ) {
+    return false
+  }
+
+  return true
+}
+
+// 處理圖片變換事件
+// Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
+// 若直接將該屬性設為 false，圖片將無法自動置中與縮放。
+// 因此我們在上傳圖片後的短暫時間內允許變換 (allowScaleTransform = true)，
+// 待 initial layout 完成後，再透過此事件處理器攔截後續的使用者操作 (allowScaleTransform = false)。
+const onTransform = (event: CustomEvent) => {
+  // 如果在允許期間，直接通過
+  if (allowScaleTransform.value) {
+    return
+  }
+
+  // 進行邊界檢查
+  const selection = selectionRef.value
+  const image = cropperImageRef.value
+  if (!selection || !image) return
+
+  if (!isTransformWithinSelection(image, selection, event.detail.matrix)) {
     event.preventDefault()
   }
 }
