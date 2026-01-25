@@ -1,38 +1,29 @@
-import { ref, onScopeDispose } from 'vue'
+import { ref, onScopeDispose, computed } from 'vue'
+import { useHeicSupport } from './useHeicSupport'
 
 /**
- * 支援的圖片格式列表 (MIME types)
+ * 基礎支援的圖片格式列表 (MIME types)
  * @constant
  */
-const ACCEPTED_FORMATS = [
+const BASE_ACCEPTED_FORMATS = [
   'image/jpeg',
   'image/png',
   'image/gif',
   'image/webp',
   'image/bmp',
-  // ⚠️ HEIC/HEIF 格式限制說明:
-  // 1. 瀏覽器原生支援情況:
-  //    - Chrome/Edge/Firefox (桌面版): ❌ 不支援 (無法直接預覽 HEIC 圖片)
-  //    - Safari (macOS/iOS): ✅ 支援
-  // 2. 目前實作:
-  //    - 允許檔案選擇 (驗證會通過)
-  //    - 但 Chrome/Edge/Firefox 使用者會看到空白預覽區 (因為 <cropper-image> 無法載入)
-  // 3. 解決方案選項:
-  //    Option A: 移除 HEIC/HEIF (建議用於大多數使用者)
-  //    Option B: 整合 heic2any (https://github.com/alexcorvi/heic2any) 進行客戶端轉換
-  //    Option C: 後端 API 轉換 (需要額外開發)
-  // 4. 當前決策: 保留格式驗證,但使用者體驗在非 Safari 瀏覽器會有問題
-  'image/heic',
-  'image/heif',
   'image/avif',
 ] as const
 
 /**
- * 檔案上傳 accept 屬性字串
+ * HEIC/HEIF 圖片格式列表
  * @constant
- * @example <input type="file" :accept="ACCEPT_STRING" />
  */
-const ACCEPT_STRING = '.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,.avif'
+const HEIC_FORMATS = ['image/heic', 'image/heif'] as const
+
+/**
+ * 基礎檔案上傳 accept 屬性字串
+ */
+const BASE_ACCEPT_STRING = '.jpg,.jpeg,.png,.gif,.webp,.bmp,.avif'
 
 /**
  * Cropper.js 裁切區域資料結構
@@ -66,7 +57,7 @@ interface ValidationResult {
  * @param {number} [maxFileSize=10485760] - 最大檔案大小限制 (bytes)，預設 10MB
  *
  * @returns {Object} Cropper 功能集合
- * @returns {string} ACCEPT_STRING - 檔案選擇器 accept 屬性
+ * @returns {ComputedRef<string>} ACCEPT_STRING - 檔案選擇器 accept 屬性
  * @returns {Ref<string>} imageUrl - 圖片 Object URL (透過 URL.createObjectURL 產生)
  * @returns {Ref<string>} imageName - 圖片檔案名稱
  * @returns {Ref<string>} imageMimeType - 圖片 MIME type
@@ -96,6 +87,11 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
   const imageUrl = ref<string>('')
   const imageName = ref<string>('')
   const imageMimeType = ref<string>('')
+  const { isSupported: isHeicSupported } = useHeicSupport()
+
+  const acceptString = computed(() => {
+    return isHeicSupported.value ? `${BASE_ACCEPT_STRING},.heic,.heif` : BASE_ACCEPT_STRING
+  })
 
   /**
    * 驗證圖片檔案格式與大小
@@ -103,10 +99,24 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
    * @returns {ValidationResult} 驗證結果
    */
   const validateFile = (file: File): ValidationResult => {
-    if (!ACCEPTED_FORMATS.includes(file.type as (typeof ACCEPTED_FORMATS)[number])) {
+    const isBaseFormat = BASE_ACCEPTED_FORMATS.some((f) => f === file.type)
+    const isHeicFormat = HEIC_FORMATS.some((f) => f === file.type)
+    const isSupportedHeic = isHeicFormat && isHeicSupported.value
+
+    if (!isBaseFormat && !isSupportedHeic) {
+      const allowedFormats = [
+        'JPG',
+        'PNG',
+        'GIF',
+        'WebP',
+        'BMP',
+        ...(isHeicSupported.value ? ['HEIC'] : []),
+        'AVIF',
+      ].join('、')
+
       return {
         valid: false,
-        error: '不支援的圖片格式，請選擇 JPG、PNG、GIF、WebP、BMP、HEIC 或 AVIF',
+        error: `不支援的圖片格式，請選擇 ${allowedFormats}`,
       }
     }
 
@@ -166,7 +176,7 @@ export const useCropper = (maxFileSize: number = 10 * 1024 * 1024) => {
   })
 
   return {
-    ACCEPT_STRING,
+    ACCEPT_STRING: acceptString,
     imageUrl,
     imageName,
     imageMimeType,

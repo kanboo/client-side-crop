@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import 'cropperjs'
 import type { CropperSelection, CropperImage } from 'cropperjs'
 import { calculateFitSelection } from '@/composables/useCropperCalculation'
+import { useHeicSupport } from '@/composables/useHeicSupport'
 
 interface Props {
   imageUrl: string
@@ -21,6 +22,17 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+const { isSupported: isHeicSupported } = useHeicSupport()
+
+const uploadHint = computed(() => {
+  const formats = ['JPG', 'PNG', 'GIF', 'WebP', 'BMP']
+  if (isHeicSupported.value) {
+    formats.push('HEIC')
+  }
+  formats.push('AVIF')
+  return `支援 ${formats.join('、')}`
+})
 
 const containerRef = ref<HTMLElement | null>(null)
 const selectionRef = ref<CropperSelection | null>(null)
@@ -282,7 +294,7 @@ watch(
     <div v-else class="empty-state">
       <div class="upload-icon">📷</div>
       <div class="upload-text">點擊此處上傳圖片</div>
-      <div class="upload-hint">支援 JPG、PNG、GIF、WebP、BMP、HEIC、AVIF</div>
+      <div class="upload-hint">{{ uploadHint }}</div>
     </div>
   </div>
 </template>

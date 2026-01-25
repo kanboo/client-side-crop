@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { effectScope } from 'vue'
+import { effectScope, ref } from 'vue'
 import { useCropper } from '../useCropper'
+
+// Mock useHeicSupport
+const isHeicSupported = ref(false)
+vi.mock('../useHeicSupport', () => ({
+  useHeicSupport: () => ({
+    isSupported: isHeicSupported,
+  }),
+}))
 
 describe('useCropper', () => {
   let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>
@@ -9,6 +17,8 @@ describe('useCropper', () => {
   beforeEach(() => {
     revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL')
     createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
+    // Reset HEIC support to false by default
+    isHeicSupported.value = false
   })
 
   afterEach(() => {
@@ -59,6 +69,36 @@ describe('useCropper', () => {
         expect(result.valid).toBe(true)
       })
       scope.stop()
+    })
+
+    describe('HEIC 支援控制', () => {
+      it('當不支援 HEIC 時拒絕 HEIC 檔案', () => {
+        isHeicSupported.value = false
+        const scope = effectScope()
+        scope.run(() => {
+          const { loadImage } = useCropper()
+          const mockFile = new File(['test'], 'test.heic', { type: 'image/heic' })
+          const result = loadImage(mockFile)
+
+          expect(result.valid).toBe(false)
+          expect(result.error).toContain('不支援的圖片格式')
+        })
+        scope.stop()
+      })
+
+      it('當支援 HEIC 時接受 HEIC 檔案', () => {
+        isHeicSupported.value = true
+        const scope = effectScope()
+        scope.run(() => {
+          const { loadImage, imageMimeType } = useCropper()
+          const mockFile = new File(['test'], 'test.heic', { type: 'image/heic' })
+          const result = loadImage(mockFile)
+
+          expect(result.valid).toBe(true)
+          expect(imageMimeType.value).toBe('image/heic')
+        })
+        scope.stop()
+      })
     })
 
     it('拒絕不支援的檔案格式', () => {
@@ -133,16 +173,29 @@ describe('useCropper', () => {
   })
 
   describe('ACCEPT_STRING', () => {
-    it('包含所有支援的副檔名', () => {
+    it('包含基礎支援的副檔名', () => {
+      isHeicSupported.value = false
       const scope = effectScope()
       scope.run(() => {
         const { ACCEPT_STRING } = useCropper()
 
-        expect(ACCEPT_STRING).toContain('.jpg')
-        expect(ACCEPT_STRING).toContain('.png')
-        expect(ACCEPT_STRING).toContain('.webp')
-        expect(ACCEPT_STRING).toContain('.heic')
-        expect(ACCEPT_STRING).toContain('.avif')
+        // ACCEPT_STRING is now a ComputedRef
+        expect(ACCEPT_STRING.value).toContain('.jpg')
+        expect(ACCEPT_STRING.value).toContain('.png')
+        expect(ACCEPT_STRING.value).toContain('.webp')
+        expect(ACCEPT_STRING.value).not.toContain('.heic')
+      })
+      scope.stop()
+    })
+
+    it('當支援時包含 HEIC 副檔名', () => {
+      isHeicSupported.value = true
+      const scope = effectScope()
+      scope.run(() => {
+        const { ACCEPT_STRING } = useCropper()
+
+        expect(ACCEPT_STRING.value).toContain('.heic')
+        expect(ACCEPT_STRING.value).toContain('.heif')
       })
       scope.stop()
     })
