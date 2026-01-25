@@ -4,13 +4,13 @@ import { watch } from 'vue'
 
 /**
  * 即時預覽元件屬性
- * @property {string} [imageUrl] - 圖片 URL (來自 useCropper)
- * @property {number} [aspectRatio=9/16] - 預覽區域寬高比 (0.5625 = 9:16)
- * @property {string} [selectionSelector='#cropper-selection-main'] - Cropper.js 選取框 CSS 選擇器
  */
 interface Props {
+  /** 圖片 URL (來自 useCropper) */
   imageUrl?: string
+  /** 預覽區域寬高比 (預設: 0.5625 = 9:16) */
   aspectRatio?: number
+  /** Cropper.js 選取框 CSS 選擇器 */
   selectionSelector?: string
 }
 

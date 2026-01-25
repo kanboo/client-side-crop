@@ -6,9 +6,13 @@ import { calculateFitSelection } from '@/composables/useCropperCalculation'
 import { useHeicSupport } from '@/composables/useHeicSupport'
 
 interface Props {
+  /** 圖片 URL */
   imageUrl: string
+  /** 裁切框初始覆蓋比例 (範圍: 0.1 ~ 1.0) */
   initialCoverage: number
+  /** 裁切框長寬比 (width / height) */
   aspectRatio: number
+  /** Cropper Selection 元素的 ID */
   selectionId?: string
 }
 
