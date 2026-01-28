@@ -29,6 +29,11 @@ const emit = defineEmits<Emits>()
 
 const { isSupported: isHeicSupported } = useHeicSupport()
 
+const WHEEL_DEBOUNCE_MS = 150
+const SNAP_TRANSITION_DURATION_MS = 300
+// Fallback 時間略長於動畫時間，確保 transitionend 未觸發時能清理
+const SNAP_TRANSITION_FALLBACK_MS = 350
+
 const uploadHint = computed(() => {
   const formats = ['JPG', 'PNG', 'GIF', 'WebP', 'BMP']
   if (isHeicSupported.value) {
@@ -166,7 +171,7 @@ const snapToBoundary = () => {
 
   if (changed) {
     // 套用 CSS Transition 實現回彈效果
-    image.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+    image.style.transition = `transform ${SNAP_TRANSITION_DURATION_MS}ms cubic-bezier(0.25, 0.8, 0.25, 1)`
     image.$setTransform(newMatrix)
 
     const cleanup = () => {
@@ -174,8 +179,11 @@ const snapToBoundary = () => {
       image.removeEventListener('transitionend', cleanup)
     }
     image.addEventListener('transitionend', cleanup)
-    // Fallback: 如果 transitionend 沒觸發 (例如元素被隱藏)，350ms 後清除
-    setTimeout(cleanup, 350)
+    // Fallback: 如果 transitionend 沒觸發 (例如元素被隱藏)，一段時間後強制清除
+    // [Why setTimeout instead of nextTick?]
+    // 這裡需要等待真實時間 (CSS transition) 經過，而非僅等待 DOM 更新。
+    // nextTick 會立即觸發，導致動畫尚未開始就被 cleanup 清除 (transition 被移除)，失去回彈效果。
+    setTimeout(cleanup, SNAP_TRANSITION_FALLBACK_MS)
   }
 }
 
@@ -197,13 +205,19 @@ const getTwoFingerCenter = () => {
   }
 }
 
+// [雙指拖曳 (Two-finger Pan) 實作]
+// Cropper.js 原生雖支援單指拖曳 (translatable)，但為了讓觸控操作更自然，
+// 這裡額外實作了「雙指同時移動」的邏輯。
+// 當使用者進行雙指縮放 (Pinch) 時，通常也會期望圖片能隨著雙指中心點移動。
 const onPointerMove = (event: PointerEvent) => {
   if (activePointers.has(event.pointerId)) {
     activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
+    // 僅在偵測到正好兩隻手指時執行
     if (activePointers.size === 2) {
       const currentCenter = getTwoFingerCenter()
       if (currentCenter && prevTwoFingerCenter) {
+        // 計算雙指中心點的位移量
         const dx = currentCenter.x - prevTwoFingerCenter.x
         const dy = currentCenter.y - prevTwoFingerCenter.y
 
@@ -218,6 +232,7 @@ const onPointerMove = (event: PointerEvent) => {
           }
 
           if (globalScale > 0) {
+            // 套用位移，達成雙指拖曳效果
             image.$move(dx / globalScale, dy / globalScale)
           }
         }
@@ -229,6 +244,10 @@ const onPointerMove = (event: PointerEvent) => {
   }
 }
 
+// [指標釋放事件]
+// 1. 移除追蹤的指標 (Finger Lift)
+// 2. 若手指少於兩隻，停止雙指拖曳計算
+// 3. 若所有手指皆離開，執行 Clean up 並觸發邊界回彈 (Snap Back)
 const onPointerUp = (event: PointerEvent) => {
   activePointers.delete(event.pointerId)
 
@@ -236,23 +255,34 @@ const onPointerUp = (event: PointerEvent) => {
     prevTwoFingerCenter = null
   }
 
+  // 當所有手指都離開螢幕時
   if (activePointers.size === 0) {
+    // 移除全域事件監聽，節省資源
     window.removeEventListener('pointerup', onPointerUp)
     window.removeEventListener('pointercancel', onPointerUp)
     window.removeEventListener('pointermove', onPointerMove)
+
+    // 操作結束，檢查並修正圖片位置 (若超出邊界則回彈)
     snapToBoundary()
   }
 }
 
+// [指標按下事件]
+// 1. 開始追蹤指標 (Finger Down)
+// 2. 初始化雙指中心點 (若為第二隻手指)
+// 3. 註冊全域移動與釋放監聽器 (確保拖曳到視窗外也能被捕捉)
 const onPointerDown = (event: PointerEvent) => {
   activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
   if (activePointers.size === 2) {
+    // 第二隻手指按下，開始計算雙指中心點，準備進行雙指拖曳
     prevTwoFingerCenter = getTwoFingerCenter()
   } else {
+    // 單指或多於兩指時，重置雙指中心點
     prevTwoFingerCenter = null
   }
 
+  // 監聽 window 層級事件，確保指標移出元件範圍後仍能正確釋放
   window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('pointercancel', onPointerUp)
   window.addEventListener('pointermove', onPointerMove)
@@ -261,7 +291,10 @@ const onPointerDown = (event: PointerEvent) => {
 let wheelTimeout: ReturnType<typeof setTimeout>
 const onWheel = () => {
   clearTimeout(wheelTimeout)
-  wheelTimeout = setTimeout(snapToBoundary, 150) // 150ms debounce for wheel
+  // [Why setTimeout instead of nextTick?]
+  // 這是 Debounce (防抖) 機制，目的是等待使用者「停止」滾動操作一段時間後才執行。
+  // 若使用 nextTick，會在滾動過程中頻繁觸發 (每幀或每次 DOM 更新)，導致效能低落與畫面閃爍。
+  wheelTimeout = setTimeout(snapToBoundary, WHEEL_DEBOUNCE_MS)
 }
 
 // 自動將裁切框縮放到圖片範圍內 (保持比例)
