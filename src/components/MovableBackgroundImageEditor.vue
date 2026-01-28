@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onUnmounted } from 'vue'
 import 'cropperjs'
 import type { CropperSelection, CropperImage } from 'cropperjs'
 import { calculateFitSelection } from '@/composables/useCropperCalculation'
@@ -334,6 +334,13 @@ const fitSelectionToImage = () => {
 
   selection.$change(result.x, result.y, result.width, result.height)
 }
+
+onUnmounted(() => {
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+  window.removeEventListener('pointermove', onPointerMove)
+  clearTimeout(wheelTimeout)
+})
 
 defineExpose({
   selectionRef,

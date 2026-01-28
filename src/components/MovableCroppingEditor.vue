@@ -276,6 +276,7 @@ const onWheel = () => {
 onUnmounted(() => {
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('pointercancel', onPointerUp)
+  clearTimeout(wheelTimeout)
 })
 
 // 覆寫 cropper-handle 的樣式
