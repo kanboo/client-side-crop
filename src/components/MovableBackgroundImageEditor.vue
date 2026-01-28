@@ -179,22 +179,83 @@ const snapToBoundary = () => {
   }
 }
 
-// 追蹤目前的指標數量，確保所有手指都離開後才執行回彈
-const activePointers = new Set<number>()
+// 追蹤目前的指標位置與數量
+const activePointers = new Map<number, { x: number; y: number }>()
+let prevTwoFingerCenter: { x: number; y: number } | null = null
+
+const getTwoFingerCenter = () => {
+  if (activePointers.size !== 2) return null
+  const points = Array.from(activePointers.values())
+  const p1 = points[0]
+  const p2 = points[1]
+
+  if (!p1 || !p2) return null
+
+  return {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2,
+  }
+}
+
+const onPointerMove = (event: PointerEvent) => {
+  if (activePointers.has(event.pointerId)) {
+    activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+    if (activePointers.size === 2) {
+      const currentCenter = getTwoFingerCenter()
+      if (currentCenter && prevTwoFingerCenter) {
+        const dx = currentCenter.x - prevTwoFingerCenter.x
+        const dy = currentCenter.y - prevTwoFingerCenter.y
+
+        // 取得 globalScale
+        let globalScale = 1
+        const image = cropperImageRef.value
+        if (image && image.parentElement) {
+          const canvas = image.parentElement as HTMLElement
+          if (canvas.offsetWidth > 0) {
+            const canvasRect = canvas.getBoundingClientRect()
+            globalScale = canvasRect.width / canvas.offsetWidth
+          }
+
+          if (globalScale > 0) {
+            image.$move(dx / globalScale, dy / globalScale)
+          }
+        }
+      }
+      prevTwoFingerCenter = currentCenter
+    } else {
+      prevTwoFingerCenter = null
+    }
+  }
+}
 
 const onPointerUp = (event: PointerEvent) => {
   activePointers.delete(event.pointerId)
+
+  if (activePointers.size < 2) {
+    prevTwoFingerCenter = null
+  }
+
   if (activePointers.size === 0) {
     window.removeEventListener('pointerup', onPointerUp)
     window.removeEventListener('pointercancel', onPointerUp)
+    window.removeEventListener('pointermove', onPointerMove)
     snapToBoundary()
   }
 }
 
 const onPointerDown = (event: PointerEvent) => {
-  activePointers.add(event.pointerId)
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+  if (activePointers.size === 2) {
+    prevTwoFingerCenter = getTwoFingerCenter()
+  } else {
+    prevTwoFingerCenter = null
+  }
+
   window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('pointercancel', onPointerUp)
+  window.addEventListener('pointermove', onPointerMove)
 }
 
 let wheelTimeout: ReturnType<typeof setTimeout>
