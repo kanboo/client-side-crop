@@ -36,6 +36,7 @@ declare module 'cropperjs' {
   export interface CropperImage extends BaseCropperImage {
     src: string
     $getTransform(): [number, number, number, number, number, number]
+    $setTransform(matrix: [number, number, number, number, number, number]): void
   }
 }
 

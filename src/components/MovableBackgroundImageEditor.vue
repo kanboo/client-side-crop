@@ -67,76 +67,140 @@ const toCanvas = async () => {
   })
 }
 
-// 標記是否允許縮放變換（上傳圖片後短時間內允許）
-const allowScaleTransform = ref(false)
-
-// 檢查變換後的圖片是否在選取範圍內
-const isTransformWithinSelection = (
-  image: CropperImage,
-  selection: CropperSelection,
-  matrix: number[],
-) => {
-  const canvas = image.parentElement as HTMLElement
-  if (!canvas) return true
-
-  const selectionRect = selection.getBoundingClientRect()
-
-  // 1. 複製 cropper image 元素
-  const imageClone = image.cloneNode() as CropperImage
-
-  // 2. 將新的變換矩陣應用到複製的圖片上
-  imageClone.style.transform = `matrix(${matrix.join(', ')})`
-
-  // 3. 隱藏複製的圖片
-  imageClone.style.opacity = '0'
-  imageClone.style.pointerEvents = 'none'
-
-  // 4. 將複製的圖片加入到 cropper canvas 中
-  canvas.appendChild(imageClone)
-
-  // 5. 計算複製圖片的邊界
-  const imageRect = imageClone.getBoundingClientRect()
-
-  // 6. 移除複製的圖片
-  canvas.removeChild(imageClone)
-
-  // 7. 如果圖片沒有完全覆蓋選取範圍，則阻止變換
-  // 圖片覆蓋選取範圍的條件：
-  // image.top <= selection.top
-  // image.right >= selection.right
-  // image.bottom >= selection.bottom
-  // image.left <= selection.left
-  if (
-    imageRect.top > selectionRect.top ||
-    imageRect.right < selectionRect.right ||
-    imageRect.bottom < selectionRect.bottom ||
-    imageRect.left > selectionRect.left
-  ) {
-    return false
-  }
-
-  return true
-}
-
-// 處理圖片變換事件
-// Workaround: Cropper.js v2 的 initial-center-size="contain" 依賴 translatable 與 scalable 屬性
-// 若直接將該屬性設為 false，圖片將無法自動置中與縮放。
-// 因此我們在上傳圖片後的短暫時間內允許變換 (allowScaleTransform = true)，
-// 待 initial layout 完成後，再透過此事件處理器攔截後續的使用者操作 (allowScaleTransform = false)。
-const onTransform = (event: CustomEvent) => {
-  // 如果在允許期間，直接通過
-  if (allowScaleTransform.value) {
-    return
-  }
-
-  // 進行邊界檢查
+// 邊界回彈 (Snap Back) 邏輯
+const snapToBoundary = () => {
   const selection = selectionRef.value
   const image = cropperImageRef.value
   if (!selection || !image) return
 
-  if (!isTransformWithinSelection(image, selection, event.detail.matrix)) {
-    event.preventDefault()
+  const selectionRect = selection.getBoundingClientRect()
+  const imageRect = image.getBoundingClientRect()
+
+  const matrix = image.$getTransform()
+  // 複製一份 matrix 以便修改
+  const newMatrix = [...matrix] as [number, number, number, number, number, number]
+  let changed = false
+
+  // 1. 檢查縮放 (Scale)
+  // 如果圖片比選取框小，計算需要的縮放比例
+  const widthRatio = selectionRect.width / imageRect.width
+  const heightRatio = selectionRect.height / imageRect.height
+  const maxRatio = Math.max(widthRatio, heightRatio)
+
+  // 預估新的 Rect 資訊 (用於後續的位移計算)
+  let currentLeft = imageRect.left
+  let currentTop = imageRect.top
+  let currentWidth = imageRect.width
+  let currentHeight = imageRect.height
+
+  // 如果需要放大 (給予 1% 的容許值)
+  if (maxRatio > 1.01) {
+    // 應用縮放
+    newMatrix[0] *= maxRatio
+    newMatrix[1] *= maxRatio
+    newMatrix[2] *= maxRatio
+    newMatrix[3] *= maxRatio
+
+    // Note: 若 CSS transform-origin 為 center (預設值)，
+    // 單純縮放 matrix 的 scale components (a, d) 就會達到「以中心縮放」的視覺效果。
+    // 因此這裡不需要像之前一樣手動修正 translate (tx, ty)。
+    // 之前的錯誤邏輯會導致縮放時位置偏移。
+
+    // 更新 Rect 資訊以供後續位移計算使用
+    // 假設是以中心縮放，計算新的邊界
+    const cx = currentLeft + currentWidth / 2
+    const cy = currentTop + currentHeight / 2
+
+    currentWidth *= maxRatio
+    currentHeight *= maxRatio
+    currentLeft = cx - currentWidth / 2
+    currentTop = cy - currentHeight / 2
+
+    changed = true
   }
+
+  // 2. 檢查位移 (Translation)
+  // 計算是否與選取框有間隙 (Gap)
+  let dx = 0
+  let dy = 0
+
+  // 取得父容器的 Global Scale Factor
+  // imageRect.width (Viewport) = image.offsetWidth * newMatrix[0] (Local Scale) * ParentScale
+  // 但 image.offsetWidth 可能是 0 (若未正確 render)，所以改用 canvas 比較
+  // ParentScale = canvasRect.width / canvas.offsetWidth
+  const canvas = image.parentElement as HTMLElement
+  let globalScale = 1
+  if (canvas && canvas.offsetWidth > 0) {
+    const canvasRect = canvas.getBoundingClientRect()
+    globalScale = canvasRect.width / canvas.offsetWidth
+  }
+
+  // 檢查水平方向
+  if (currentLeft > selectionRect.left) {
+    // 左邊有空隙，向左移
+    dx = selectionRect.left - currentLeft
+  } else if (currentLeft + currentWidth < selectionRect.right) {
+    // 右邊有空隙，向右移
+    dx = selectionRect.right - (currentLeft + currentWidth)
+  }
+
+  // 檢查垂直方向
+  if (currentTop > selectionRect.top) {
+    // 上邊有空隙，向上移
+    dy = selectionRect.top - currentTop
+  } else if (currentTop + currentHeight < selectionRect.bottom) {
+    // 下邊有空隙，向下移
+    dy = selectionRect.bottom - (currentTop + currentHeight)
+  }
+
+  if (dx !== 0 || dy !== 0) {
+    // 修正: 加上 globalScale 除法
+    // dx 是 Viewport Pixel，需要轉換回 Local Matrix Unit
+    // Local Unit = Viewport Pixel / Global Scale
+    if (globalScale > 0) {
+      newMatrix[4] += dx / globalScale
+      newMatrix[5] += dy / globalScale
+      changed = true
+    }
+  }
+
+  if (changed) {
+    // 套用 CSS Transition 實現回彈效果
+    image.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+    image.$setTransform(newMatrix)
+
+    const cleanup = () => {
+      image.style.transition = ''
+      image.removeEventListener('transitionend', cleanup)
+    }
+    image.addEventListener('transitionend', cleanup)
+    // Fallback: 如果 transitionend 沒觸發 (例如元素被隱藏)，350ms 後清除
+    setTimeout(cleanup, 350)
+  }
+}
+
+// 追蹤目前的指標數量，確保所有手指都離開後才執行回彈
+const activePointers = new Set<number>()
+
+const onPointerUp = (event: PointerEvent) => {
+  activePointers.delete(event.pointerId)
+  if (activePointers.size === 0) {
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
+    snapToBoundary()
+  }
+}
+
+const onPointerDown = (event: PointerEvent) => {
+  activePointers.add(event.pointerId)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
+}
+
+let wheelTimeout: ReturnType<typeof setTimeout>
+const onWheel = () => {
+  clearTimeout(wheelTimeout)
+  wheelTimeout = setTimeout(snapToBoundary, 150) // 150ms debounce for wheel
 }
 
 // 自動將裁切框縮放到圖片範圍內 (保持比例)
@@ -187,10 +251,6 @@ watch(
   async () => {
     if (!props.imageUrl) return
 
-    // 開啟允許縮放的時間窗口（讓 contain 自動縮放可以執行）
-    // 計時會在第一次觸發 handleImageTransform 時開始
-    allowScaleTransform.value = true
-
     await nextTick()
 
     const image = cropperImageRef.value
@@ -199,9 +259,7 @@ watch(
         await image.$ready()
 
         // 保險起見，等待一個 tick 讓 Cropper 內部完成初始的 layout/transform (contain)
-        // 避免 allowScaleTransform 過早關閉導致初始置中被攔截
         await nextTick()
-        allowScaleTransform.value = false
 
         // 圖片載入完成，立即執行一次裁切框調整
         fitSelectionToImage()
@@ -222,7 +280,7 @@ watch(
     @click="!imageUrl && $emit('trigger-file-input')"
   >
     <template v-if="imageUrl">
-      <cropper-canvas background scale-step="0.02">
+      <cropper-canvas background scale-step="0.1" @pointerdown="onPointerDown" @wheel="onWheel">
         <cropper-image
           ref="cropperImageRef"
           :src="imageUrl"
@@ -231,7 +289,6 @@ watch(
           scalable
           skewable
           translatable
-          @transform="onTransform"
         ></cropper-image>
         <cropper-handle action="move" plain />
         <cropper-selection
