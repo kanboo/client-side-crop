@@ -50,6 +50,16 @@ interface ValidationResult {
 }
 
 /**
+ * 圖片匯出品質設定
+ * @constant
+ * @description
+ * 設定為 0.92 (92%) 是為了避免檔案大小膨脹。
+ * 當使用 1.0 (100%) 時，瀏覽器會使用極低的壓縮率，導致產出的圖片檔案大小可能遠大於原始檔案。
+ * 0.92 是一個在品質與檔案大小之間取得良好平衡的數值，通常能產出與原圖大小相近的結果。
+ */
+export const EXPORT_IMAGE_QUALITY = 0.92
+
+/**
  * 圖片裁切邏輯封裝 Composable
  *
  * @description 提供圖片選擇、驗證、載入與清理功能

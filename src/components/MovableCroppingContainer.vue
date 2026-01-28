@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import { useCropper } from '@/composables/useCropper'
+import { useCropper, EXPORT_IMAGE_QUALITY } from '@/composables/useCropper'
 import MovableCroppingEditor from './MovableCroppingEditor.vue'
 import CropperResultPreview from './CropperResultPreview.vue'
 
@@ -118,7 +118,7 @@ const handleDownload = async () => {
         emit('download', blob)
       },
       imageMimeType.value || 'image/png',
-      1.0,
+      EXPORT_IMAGE_QUALITY,
     )
   } catch {
     errorMessage.value = '產生裁切圖片失敗'
@@ -150,7 +150,7 @@ const handleUpload = async () => {
         emit('upload', file)
       },
       imageMimeType.value || 'image/png',
-      1.0,
+      EXPORT_IMAGE_QUALITY,
     )
   } catch {
     errorMessage.value = '產生裁切圖片失敗'
