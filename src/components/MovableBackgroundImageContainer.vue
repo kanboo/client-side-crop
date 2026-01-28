@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import { useCropper, EXPORT_IMAGE_QUALITY } from '@/composables/useCropper'
+import { useCropper } from '@/composables/useCropper'
+import { getOptimizedBlob } from '@/utils/imageUtils'
 import MovableBackgroundImageEditor from './MovableBackgroundImageEditor.vue'
 import CropperResultPreview from './CropperResultPreview.vue'
 
@@ -47,9 +48,7 @@ if (props.aspectRatio <= 0) {
   )
 }
 
-const { ACCEPT_STRING, imageUrl, imageName, imageMimeType, loadImage, clear } = useCropper(
-  props.maxFileSize,
-)
+const { ACCEPT_STRING, imageUrl, imageName, loadImage, clear } = useCropper(props.maxFileSize)
 
 const selectionId = `cropper-selection-${crypto.randomUUID()}`
 
@@ -104,24 +103,21 @@ const handleDownload = async () => {
       return
     }
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          errorMessage.value = '產生裁切圖片失敗'
-          return
-        }
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `cropped-${Date.now()}.${blob.type.split('/')[1]}`
-        a.click()
-        URL.revokeObjectURL(url)
+    const { blob, extension } = await getOptimizedBlob(canvas)
 
-        emit('download', blob)
-      },
-      imageMimeType.value || 'image/png',
-      EXPORT_IMAGE_QUALITY,
-    )
+    if (!blob) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // 使用新的副檔名 (例如 .webp)
+    a.download = `cropped-${Date.now()}${extension}`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    emit('download', blob)
   } catch {
     errorMessage.value = '產生裁切圖片失敗'
   }
@@ -141,19 +137,16 @@ const handleUpload = async () => {
       return
     }
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          errorMessage.value = '產生裁切圖片失敗'
-          return
-        }
-        const fileName = imageName.value.replace(/\.[^.]+$/, (ext) => `-cropped${ext}`)
-        const file = new File([blob], fileName, { type: blob.type })
-        emit('upload', file)
-      },
-      imageMimeType.value || 'image/png',
-      EXPORT_IMAGE_QUALITY,
-    )
+    const { blob, extension } = await getOptimizedBlob(canvas)
+
+    if (!blob) {
+      errorMessage.value = '產生裁切圖片失敗'
+      return
+    }
+    // 替換副檔名為新的格式 (例如 .jpg -> .webp)
+    const fileName = imageName.value.replace(/\.[^.]+$/, () => `-cropped${extension}`)
+    const file = new File([blob], fileName, { type: blob.type })
+    emit('upload', file)
   } catch {
     errorMessage.value = '產生裁切圖片失敗'
   }

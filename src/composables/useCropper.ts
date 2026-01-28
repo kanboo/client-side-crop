@@ -60,6 +60,15 @@ interface ValidationResult {
 export const EXPORT_IMAGE_QUALITY = 0.92
 
 /**
+ * WebP 圖片匯出品質設定
+ * @constant
+ * @description
+ * 設定為 0.95 (95%)。WebP 的壓縮效率優於 JPEG，即使在高品質下也能保持較小的檔案大小。
+ * 使用 0.95 可以獲得接近無損的視覺品質，同時檔案大小通常仍小於 JPEG (0.92)。
+ */
+export const EXPORT_WEBP_QUALITY = 0.95
+
+/**
  * 圖片裁切邏輯封裝 Composable
  *
  * @description 提供圖片選擇、驗證、載入與清理功能
