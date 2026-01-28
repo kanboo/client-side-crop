@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onUnmounted } from 'vue'
 import 'cropperjs'
 import type { CropperSelection, CropperImage } from 'cropperjs'
 import { calculateFitSelection } from '@/composables/useCropperCalculation'
@@ -138,13 +138,12 @@ const fitSelectionToImage = () => {
   })
 }
 
-// 檢查選取框是否在限制範圍內
-const inSelection = (
+// 檢查選取框是否在限制範圍內 (用於 snap 判斷)
+const isValidSelection = (
   selection: { x: number; y: number; width: number; height: number },
   maxSelection: { x: number; y: number; width: number; height: number },
 ) => {
-  // 使用稍微寬鬆的檢查（epsilon）來避免浮點數精度問題
-  const EPSILON = 0.1
+  const EPSILON = 0.5
   return (
     selection.x >= maxSelection.x - EPSILON &&
     selection.y >= maxSelection.y - EPSILON &&
@@ -153,23 +152,31 @@ const inSelection = (
   )
 }
 
-const handleSelectionChange = (event: CustomEvent) => {
-  // 如果是程式化更新，直接允許
-  if (isProgrammaticUpdate.value) return
+const SNAP_TRANSITION_DURATION_MS = 300
+const SNAP_TRANSITION_FALLBACK_MS = 350
+const WHEEL_DEBOUNCE_MS = 150
 
-  const selection = event.detail
+const snapSelectionToBoundary = () => {
+  const selection = selectionRef.value
   const image = cropperImageRef.value
-  const selectionElement = selectionRef.value
+  if (!selection || !image) return
 
-  if (!image || !selectionElement) return
-
-  // 取得 Canvas 元素 (selection 的父元素)
-  const canvas = selectionElement.parentElement as HTMLElement
+  const canvas = selection.parentElement as HTMLElement
   if (!canvas) return
+
+  // 取得目前的 selection 數值 (相對於 canvas 的座標)
+  // selection 的屬性 x, y, width, height 是直接反映在 DOM 上的數值
+  const currentSelection = {
+    x: selection.x,
+    y: selection.y,
+    width: selection.width,
+    height: selection.height,
+  }
 
   const imageRect = image.getBoundingClientRect()
   const canvasRect = canvas.getBoundingClientRect()
 
+  // 計算圖片在 Canvas 座標系中的位置與尺寸 (這是我們的邊界)
   const maxSelection = {
     x: imageRect.left - canvasRect.left,
     y: imageRect.top - canvasRect.top,
@@ -177,10 +184,99 @@ const handleSelectionChange = (event: CustomEvent) => {
     height: imageRect.height,
   }
 
-  if (!inSelection(selection, maxSelection)) {
-    event.preventDefault()
+  // 如果已經在範圍內，不需動作
+  if (isValidSelection(currentSelection, maxSelection)) return
+
+  // 計算目標位置與尺寸
+  let targetX = currentSelection.x
+  let targetY = currentSelection.y
+  let targetWidth = currentSelection.width
+  let targetHeight = currentSelection.height
+
+  // 1. 調整尺寸 (縮放)
+  // 檢查是否大於圖片
+  let scale = 1
+  if (targetWidth > maxSelection.width) {
+    scale = maxSelection.width / targetWidth
+  }
+  if (targetHeight * scale > maxSelection.height) {
+    scale = Math.min(scale, maxSelection.height / targetHeight)
+  }
+
+  if (scale < 1) {
+    // 需要縮小 (以中心點為基準縮放會比較自然，但這裡簡化為調整大小後再修正位置)
+    // 保持中心點的縮放邏輯：
+    const cx = targetX + targetWidth / 2
+    const cy = targetY + targetHeight / 2
+    targetWidth *= scale
+    targetHeight *= scale
+    targetX = cx - targetWidth / 2
+    targetY = cy - targetHeight / 2
+  }
+
+  // 2. 調整位置 (位移)
+  // 確保不超出左/上邊界
+  if (targetX < maxSelection.x) targetX = maxSelection.x
+  if (targetY < maxSelection.y) targetY = maxSelection.y
+  // 確保不超出右/下邊界
+  if (targetX + targetWidth > maxSelection.x + maxSelection.width) {
+    targetX = maxSelection.x + maxSelection.width - targetWidth
+  }
+  if (targetY + targetHeight > maxSelection.y + maxSelection.height) {
+    targetY = maxSelection.y + maxSelection.height - targetHeight
+  }
+
+  // 執行回彈動畫
+  // cropper-selection 的位置是由 x, y, width, height 屬性控制
+  // 我們可以透過設定 style transition 來達成動畫效果
+  selection.style.transition = `all ${SNAP_TRANSITION_DURATION_MS}ms cubic-bezier(0.25, 0.8, 0.25, 1)`
+
+  // 使用 $change 更新數值
+  selection.$change(targetX, targetY, targetWidth, targetHeight)
+
+  const cleanup = () => {
+    selection.style.transition = ''
+    selection.removeEventListener('transitionend', cleanup)
+  }
+  selection.addEventListener('transitionend', cleanup)
+  // Fallback: 如果 transitionend 沒觸發 (例如元素被隱藏)，一段時間後強制清除
+  // [Why setTimeout instead of nextTick?]
+  // 這裡需要等待真實時間 (CSS transition) 經過，而非僅等待 DOM 更新。
+  // nextTick 會立即觸發，導致動畫尚未開始就被 cleanup 清除 (transition 被移除)，失去回彈效果。
+  setTimeout(cleanup, SNAP_TRANSITION_FALLBACK_MS)
+}
+
+// Pointer Event Tracking
+const activePointers = new Set<number>()
+
+const onPointerUp = (event: PointerEvent) => {
+  activePointers.delete(event.pointerId)
+  if (activePointers.size === 0) {
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
+    snapSelectionToBoundary()
   }
 }
+
+const onPointerDown = (event: PointerEvent) => {
+  activePointers.add(event.pointerId)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
+}
+
+let wheelTimeout: ReturnType<typeof setTimeout>
+const onWheel = () => {
+  clearTimeout(wheelTimeout)
+  // [Why setTimeout instead of nextTick?]
+  // 這是 Debounce (防抖) 機制，目的是等待使用者「停止」滾動操作一段時間後才執行。
+  // 若使用 nextTick，會在滾動過程中頻繁觸發 (每幀或每次 DOM 更新)，導致效能低落與畫面閃爍。
+  wheelTimeout = setTimeout(snapSelectionToBoundary, WHEEL_DEBOUNCE_MS)
+}
+
+onUnmounted(() => {
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+})
 
 // 覆寫 cropper-handle 的樣式
 //
@@ -260,7 +356,7 @@ watch(
     @click="!imageUrl && $emit('trigger-file-input')"
   >
     <template v-if="imageUrl">
-      <cropper-canvas background scale-step="0.05">
+      <cropper-canvas background scale-step="0.1">
         <cropper-image
           ref="cropperImageRef"
           :src="imageUrl"
@@ -279,7 +375,8 @@ watch(
           movable
           resizable
           zoomable
-          @change="handleSelectionChange"
+          @pointerdown="onPointerDown"
+          @wheel="onWheel"
         >
           <cropper-grid bordered covered rows="1" columns="1" theme-color="#000000"></cropper-grid>
           <cropper-crosshair centered theme-color="transparent"></cropper-crosshair>
