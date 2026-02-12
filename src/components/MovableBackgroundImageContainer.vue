@@ -22,7 +22,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  initialCoverage: 0.7,
+  initialCoverage: 1,
   maxFileSize: 10 * 1024 * 1024,
   aspectRatio: 9 / 16,
   showPreview: true,

@@ -2,7 +2,6 @@
 import { ref, watch, nextTick, computed, onUnmounted } from 'vue'
 import 'cropperjs'
 import type { CropperSelection, CropperImage } from 'cropperjs'
-import { calculateFitSelection } from '@/composables/useCropperCalculation'
 import { useHeicSupport } from '@/composables/useHeicSupport'
 
 interface Props {
@@ -297,42 +296,43 @@ const onWheel = () => {
   wheelTimeout = setTimeout(snapToBoundary, WHEEL_DEBOUNCE_MS)
 }
 
-// 自動將裁切框縮放到圖片範圍內 (保持比例)
+// 自動將圖片縮放到填滿裁切框 (Cover 策略)
 //
 // [為什麼需要這個函式？]
-// Cropper.js 原生的 initial-coverage 屬性是用來設定裁切框佔「容器 (Canvas)」的比例，而不是佔「圖片」的比例。
-// 當圖片長寬比與 Canvas 不一致時（例如：橫向圖片在直向 Canvas 中），圖片只會佔據 Canvas 的中間一部分。
-//
-// 這時如果單純依賴 initial-coverage，裁切框會根據 Canvas 尺寸計算，導致初始框可能遠大於圖片本身。
-// 加上我們實作了「邊界檢查 (Boundary Check)」，這會導致初始框因為超出圖片邊界而無法被縮小或移動（被擋住）。
+// 現在改為「裁切框固定大小（100% coverage, 維持 9:16 比例）」，圖片需要自動縮放以填滿裁切框。
+// 當圖片長寬比與裁切框不一致時（例如：橫向圖片配直向裁切框），需要確保圖片的任一邊都不會小於裁切框。
 //
 // [解決方案]
-// 此函式會在圖片載入並佈局完成後 ($ready) 觸發，它會：
-// 1. 取得圖片在 Canvas 中的實際顯示位置與尺寸 (getBoundingClientRect)。
-// 2. 計算出能「完整塞入圖片內」的最大 9:16 矩形。
-// 3. 乘上 initialCoverage (預設 0.7) 得到最終尺寸。
-// 4. 強制將裁切框更新到該尺寸並置中。
-const fitSelectionToImage = () => {
-  const image = cropperImageRef.value
+// 此函式會在圖片載入完成後觸發，計算填滿裁切框所需的最小縮放比例（Cover 策略）：
+// 1. 取得裁切框與圖片的實際尺寸 (getBoundingClientRect)
+// 2. 計算水平與垂直方向的縮放比例，取較大值（確保完全覆蓋）
+// 3. 若需要放大，以中心點為基準套用縮放變換
+const fitImageToSelection = () => {
   const selection = selectionRef.value
-  if (!image || !selection) return
+  const image = cropperImageRef.value
+  if (!selection || !image) return
 
-  const canvas = selection.parentElement as HTMLElement
-  if (!canvas) return
-
+  const selectionRect = selection.getBoundingClientRect()
   const imageRect = image.getBoundingClientRect()
-  const canvasRect = canvas.getBoundingClientRect()
 
-  const result = calculateFitSelection(
-    imageRect,
-    canvasRect,
-    props.aspectRatio,
-    props.initialCoverage,
-  )
+  // 計算填滿裁切框所需的最小縮放比例（Cover 策略）
+  const scaleX = selectionRect.width / imageRect.width
+  const scaleY = selectionRect.height / imageRect.height
+  const minScale = Math.max(scaleX, scaleY)
 
-  if (!result) return
+  // 若圖片比裁切框小，需要放大
+  if (minScale > 1) {
+    const matrix = image.$getTransform()
+    const newMatrix = [...matrix] as [number, number, number, number, number, number]
 
-  selection.$change(result.x, result.y, result.width, result.height)
+    // 套用縮放（CSS transform-origin: center 自動以中心點縮放）
+    newMatrix[0] *= minScale
+    newMatrix[1] *= minScale
+    newMatrix[2] *= minScale
+    newMatrix[3] *= minScale
+
+    image.$setTransform(newMatrix)
+  }
 }
 
 onUnmounted(() => {
@@ -362,8 +362,8 @@ watch(
         // 保險起見，等待一個 tick 讓 Cropper 內部完成初始的 layout/transform (contain)
         await nextTick()
 
-        // 圖片載入完成，立即執行一次裁切框調整
-        fitSelectionToImage()
+        // 圖片載入完成，自動縮放圖片以填滿裁切框
+        fitImageToSelection()
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error))
         console.error('Failed to load image:', err)
